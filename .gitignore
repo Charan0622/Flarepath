@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Python venv
+.venv/
+
+# Next.js
+.next/
+out/
+
+# Build
+dist/
+build/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Turbo
+.turbo/
+
+# Vercel
+.vercel/
+
+# Supabase
+supabase/.temp/
+
+# Debug
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Sentry
+.sentryclirc
+
+# Coverage
+coverage/
+
+# Storybook
+storybook-static/

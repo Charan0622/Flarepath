@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a0b;
+  --foreground: #ededed;
+  --severity-critical: #ff2d2d;
+  --severity-high: #ff7b1c;
+  --severity-medium: #ffc93c;
+  --severity-low: #3ddc84;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+}
