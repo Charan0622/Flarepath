@@ -1,7 +1,6 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { getAuthenticatedUser, getServiceClient } from "@/lib/supabase/api";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
 const UpdateIncidentSchema = z.object({
@@ -20,32 +19,17 @@ const INCIDENT_TRANSITIONS: Record<string, string[]> = {
   cancelled: [],
 };
 
-function getSupabase() {
-  const cookieStore = cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
-          try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch {}
-        },
-      },
-    }
-  );
-}
-
-// GET /api/incidents/:id — detail with triage + dispatches
+// GET /api/incidents/:id
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = getSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return apiError("Unauthorized", 401);
+  const auth = await getAuthenticatedUser();
+  if (!auth) return apiError("Unauthorized", 401);
 
-  const { data: incident, error } = await supabase
+  const db = getServiceClient();
+
+  const { data: incident, error } = await db
     .from("incidents")
     .select("*")
     .eq("id", params.id)
@@ -53,10 +37,9 @@ export async function GET(
 
   if (error || !incident) return apiError("Incident not found", 404);
 
-  // Fetch triage and dispatches in parallel
   const [triageResult, dispatchResult] = await Promise.all([
-    supabase.from("ai_triage").select("*").eq("incident_id", params.id).maybeSingle(),
-    supabase.from("dispatches").select("*").eq("incident_id", params.id),
+    db.from("ai_triage").select("*").eq("incident_id", params.id).maybeSingle(),
+    db.from("dispatches").select("*").eq("incident_id", params.id),
   ]);
 
   return apiSuccess({
@@ -66,14 +49,13 @@ export async function GET(
   });
 }
 
-// PATCH /api/incidents/:id — update with state machine enforcement
+// PATCH /api/incidents/:id
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = getSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return apiError("Unauthorized", 401);
+  const auth = await getAuthenticatedUser();
+  if (!auth) return apiError("Unauthorized", 401);
 
   const body = await request.json();
   const parsed = UpdateIncidentSchema.safeParse(body);
@@ -81,9 +63,10 @@ export async function PATCH(
     return apiError(parsed.error.issues.map((i) => i.message).join(", "), 400);
   }
 
-  // If status change, enforce state machine
+  const db = getServiceClient();
+
   if (parsed.data.status) {
-    const { data: current } = await supabase
+    const { data: current } = await db
       .from("incidents")
       .select("status")
       .eq("id", params.id)
@@ -100,7 +83,7 @@ export async function PATCH(
     }
   }
 
-  const { data: updated, error } = await supabase
+  const { data: updated, error } = await db
     .from("incidents")
     .update(parsed.data)
     .eq("id", params.id)
@@ -108,6 +91,5 @@ export async function PATCH(
     .single();
 
   if (error) return apiError(error.message, 500);
-
   return apiSuccess(updated);
 }

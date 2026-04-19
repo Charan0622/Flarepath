@@ -1,7 +1,6 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { getAuthenticatedUser, getServiceClient } from "@/lib/supabase/api";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
 const CreateIncidentSchema = z.object({
@@ -22,27 +21,13 @@ const IncidentFilterSchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
-function getSupabase() {
-  const cookieStore = cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
-          try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch {}
-        },
-      },
-    }
-  );
-}
-
-// POST /api/incidents — create a new incident
+// POST /api/incidents
 export async function POST(request: NextRequest) {
-  const supabase = getSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return apiError("Unauthorized", 401);
+  const auth = await getAuthenticatedUser();
+  if (!auth) return apiError("Unauthorized", 401);
+  if (!["dispatcher", "admin", "chief"].includes(auth.profile.role)) {
+    return apiError("Insufficient permissions", 403);
+  }
 
   const body = await request.json();
   const parsed = CreateIncidentSchema.safeParse(body);
@@ -51,40 +36,27 @@ export async function POST(request: NextRequest) {
   }
 
   const { latitude, longitude, ...rest } = parsed.data;
+  const db = getServiceClient();
 
-  // Get user's org
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organization_id, role")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) return apiError("Profile not found", 404);
-  if (!["dispatcher", "admin", "chief"].includes(profile.role)) {
-    return apiError("Insufficient permissions", 403);
-  }
-
-  const { data: incident, error } = await supabase
+  const { data: incident, error } = await db
     .from("incidents")
     .insert({
-      organization_id: profile.organization_id,
+      organization_id: auth.profile.organization_id,
       location: `POINT(${longitude} ${latitude})`,
-      created_by: user.id,
+      created_by: auth.user.id,
       ...rest,
     })
     .select()
     .single();
 
   if (error) return apiError(error.message, 500);
-
   return apiSuccess(incident, 201);
 }
 
-// GET /api/incidents — list incidents with filters
+// GET /api/incidents
 export async function GET(request: NextRequest) {
-  const supabase = getSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return apiError("Unauthorized", 401);
+  const auth = await getAuthenticatedUser();
+  if (!auth) return apiError("Unauthorized", 401);
 
   const url = new URL(request.url);
   const params = Object.fromEntries(url.searchParams);
@@ -94,10 +66,12 @@ export async function GET(request: NextRequest) {
   }
 
   const { status, severity, limit, offset } = parsed.data;
+  const db = getServiceClient();
 
-  let query = supabase
+  let query = db
     .from("incidents")
     .select("*", { count: "exact" })
+    .eq("organization_id", auth.profile.organization_id)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -105,7 +79,6 @@ export async function GET(request: NextRequest) {
   if (severity) query = query.eq("severity", severity);
 
   const { data, error, count } = await query;
-
   if (error) return apiError(error.message, 500);
 
   return apiSuccess({ incidents: data, total: count });

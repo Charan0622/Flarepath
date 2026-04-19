@@ -33,9 +33,7 @@ export default function IncidentFeed({
     queryFn: fetchIncidents,
   });
 
-  if (isLoading) return <FeedSkeleton />;
-
-  // Subscribe to realtime changes
+  // Subscribe to realtime changes — must be before any early return
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -49,6 +47,8 @@ export default function IncidentFeed({
 
     return () => { supabase.removeChannel(channel); };
   }, [refetch]);
+
+  if (isLoading) return <FeedSkeleton />;
 
   // Sort: critical first, then by time descending
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
