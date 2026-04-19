@@ -141,25 +141,85 @@ export default function IncidentDetail({ incidentId, onClose, onRouteReady }: In
           </div>
         )}
 
-        {/* Dispatches */}
+        {/* Dispatched Units */}
         {incident.dispatches?.length > 0 && (
           <div className="space-y-2">
             <h3 className="text-xs font-semibold text-[#888] uppercase tracking-wider">Dispatched Units</h3>
-            {incident.dispatches.map((d: Record<string, unknown>) => (
-              <div key={d.id as string} className="rounded-lg border border-[#1a1a1e] bg-[#121214] p-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#ccc]">Vehicle: {d.vehicle_id as string}</span>
-                  <span className="rounded bg-[#3ddc84]/10 px-2 py-0.5 text-[#3ddc84]">
-                    {(d.status as string)?.replace(/_/g, " ")}
-                  </span>
-                </div>
-                {d.eta_seconds && (
-                  <p className="mt-1 text-[10px] text-[#555]">
-                    ETA: {Math.round((d.eta_seconds as number) / 60)} min · {Math.round((d.distance_m as number) / 1000 * 10) / 10} km
-                  </p>
-                )}
-              </div>
-            ))}
+            {incident.dispatches.map((d: Record<string, unknown>) => {
+              const etaMin = d.eta_seconds ? Math.ceil((d.eta_seconds as number) / 60) : null;
+              const distKm = d.distance_m ? ((d.distance_m as number) / 1000).toFixed(1) : null;
+              const hasRoute = !!d.route_geojson;
+              const statusStr = (d.status as string) ?? "assigned";
+              const STATUS_COLORS: Record<string, string> = {
+                assigned: "#ff2d2d", acknowledged: "#ff7b1c", en_route: "#ffc93c",
+                on_scene: "#3ddc84", returning: "#3b82f6", completed: "#888",
+              };
+              const statusColor = STATUS_COLORS[statusStr] ?? "#888";
+
+              return (
+                <motion.div
+                  key={d.id as string}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-xl border border-white/5 bg-gradient-to-r from-[#121214] to-[#0a0a0b] p-3 space-y-2"
+                >
+                  {/* Vehicle + Status */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🚒</span>
+                      <span className="text-xs font-semibold text-white">
+                        {(d.vehicle_id as string).slice(0, 8)}
+                      </span>
+                    </div>
+                    <span
+                      className="flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase"
+                      style={{ backgroundColor: `${statusColor}15`, color: statusColor }}
+                    >
+                      {statusStr === "en_route" && (
+                        <motion.span
+                          className="inline-block h-1.5 w-1.5 rounded-full"
+                          style={{ backgroundColor: statusColor }}
+                          animate={{ opacity: [1, 0.3, 1] }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                        />
+                      )}
+                      {statusStr.replace(/_/g, " ")}
+                    </span>
+                  </div>
+
+                  {/* Route info — the key data */}
+                  {(etaMin || distKm) && (
+                    <div className="flex items-center gap-4">
+                      {etaMin && (
+                        <div className="flex-1 rounded-lg bg-[#0a0a0b] p-2 text-center">
+                          <div className="text-[10px] text-[#555] uppercase">ETA</div>
+                          <div className="text-xl font-bold text-white">{etaMin}<span className="text-xs text-[#888] ml-0.5">min</span></div>
+                        </div>
+                      )}
+                      {distKm && (
+                        <div className="flex-1 rounded-lg bg-[#0a0a0b] p-2 text-center">
+                          <div className="text-[10px] text-[#555] uppercase">Distance</div>
+                          <div className="text-xl font-bold text-white">{distKm}<span className="text-xs text-[#888] ml-0.5">km</span></div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Route status */}
+                  {hasRoute ? (
+                    <div className="flex items-center gap-1.5 text-[10px] text-[#3ddc84]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#3ddc84]" />
+                      Shortest route computed via Mapbox Directions
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-[10px] text-[#ff7b1c]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#ff7b1c]" />
+                      Awaiting route computation
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
           </div>
         )}
 
