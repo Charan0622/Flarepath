@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { X, Brain, MapPin, Phone, User, AlertTriangle, Radio } from "lucide-react";
+import { X, Brain, MapPin, Phone, User, AlertTriangle, Radio, FileText, MessageSquare } from "lucide-react";
 import DispatchModal from "./DispatchModal";
+import IncidentChat from "./IncidentChat";
 
 interface IncidentDetailProps {
   incidentId: string;
@@ -154,17 +155,31 @@ export default function IncidentDetail({ incidentId, onClose, onRouteReady }: In
           </div>
         )}
 
-        {/* Dispatch button */}
-        {canDispatch && (
-          <button
-            onClick={() => setShowDispatch(true)}
-            className="w-full rounded-md bg-[#ff2d2d] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#e02525] flex items-center justify-center gap-2"
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          {canDispatch && (
+            <button
+              onClick={() => setShowDispatch(true)}
+              className="flex-1 rounded-md bg-[#ff2d2d] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#e02525] flex items-center justify-center gap-2"
+            >
+              <Radio size={16} />
+              Dispatch
+            </button>
+          )}
+          <a
+            href={`/api/incidents/${incidentId}/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 rounded-md border border-[#333] px-3 py-2.5 text-xs text-[#888] hover:text-white transition-colors"
           >
-            <Radio size={16} />
-            Dispatch Resources
-          </button>
-        )}
+            <FileText size={14} />
+            PDF
+          </a>
+        </div>
       </div>
+
+      {/* Chat */}
+      <IncidentChat incidentId={incidentId} />
 
       {/* Dispatch Modal */}
       <DispatchModal

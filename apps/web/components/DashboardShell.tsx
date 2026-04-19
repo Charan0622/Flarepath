@@ -8,6 +8,7 @@ import IncidentDetail from "./IncidentDetail";
 import LiveMap from "./LiveMap";
 import NewIncidentModal from "./NewIncidentModal";
 import KeyboardShortcuts from "./KeyboardShortcuts";
+import WeatherWidget from "./WeatherWidget";
 import CommandPalette from "./CommandPalette";
 
 export default function DashboardShell() {
@@ -48,8 +49,9 @@ export default function DashboardShell() {
       </div>
 
       {/* Center: Live Map */}
-      <div className="flex-1">
+      <div className="relative flex-1">
         <LiveMap onIncidentClick={setSelectedId} />
+        <WeatherWidget />
       </div>
 
       {/* Right: Detail Pane */}

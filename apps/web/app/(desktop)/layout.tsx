@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
   { href: "/", icon: Flame, label: "Incidents" },
@@ -48,7 +49,8 @@ export default function DesktopLayout({
         </nav>
 
         {/* Bottom */}
-        <div className="border-t border-[#1a1a1e] p-2">
+        <div className="border-t border-[#1a1a1e] p-2 space-y-1">
+          <ThemeToggle />
           <LogoutButton />
         </div>
       </aside>

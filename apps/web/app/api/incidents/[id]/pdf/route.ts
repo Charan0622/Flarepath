@@ -1,0 +1,115 @@
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+
+function getSupabase() {
+  const cookieStore = cookies();
+  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+    cookies: { getAll() { return cookieStore.getAll(); }, setAll(c) { try { c.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch {} } },
+  });
+}
+
+// GET /api/incidents/:id/pdf — generate downloadable HTML report (rendered as PDF by browser)
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const supabase = getSupabase();
+
+  const [incidentRes, triageRes, dispatchRes, reportRes] = await Promise.all([
+    supabase.from("incidents").select("*").eq("id", params.id).single(),
+    supabase.from("ai_triage").select("*").eq("incident_id", params.id).maybeSingle(),
+    supabase.from("dispatches").select("*").eq("incident_id", params.id),
+    supabase.from("incident_reports").select("*").eq("incident_id", params.id).maybeSingle(),
+  ]);
+
+  const incident = incidentRes.data;
+  if (!incident) return new NextResponse("Incident not found", { status: 404 });
+
+  const triage = triageRes.data;
+  const dispatches = dispatchRes.data ?? [];
+  const report = reportRes.data;
+
+  const html = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<title>Incident Report — ${incident.id.slice(0, 8)}</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; color: #333; }
+  h1 { color: #ff2d2d; border-bottom: 2px solid #ff2d2d; padding-bottom: 8px; }
+  h2 { color: #555; margin-top: 24px; }
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px 0; }
+  .meta dt { font-weight: 600; color: #888; font-size: 12px; text-transform: uppercase; }
+  .meta dd { margin: 0 0 8px 0; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .critical { background: #ff2d2d20; color: #ff2d2d; }
+  .high { background: #ff7b1c20; color: #ff7b1c; }
+  .medium { background: #ffc93c20; color: #ffc93c; }
+  .low { background: #3ddc8420; color: #3ddc84; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+  th { background: #f5f5f5; }
+  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #ddd; font-size: 11px; color: #888; }
+  @media print { body { padding: 0; } }
+</style>
+</head><body>
+<h1>Flarepath — Incident Report</h1>
+
+<dl class="meta">
+  <dt>Incident ID</dt><dd>${incident.id}</dd>
+  <dt>Type</dt><dd style="text-transform:capitalize">${incident.type.replace(/_/g, " ")}</dd>
+  <dt>Severity</dt><dd><span class="badge ${incident.severity}">${incident.severity}</span></dd>
+  <dt>Status</dt><dd style="text-transform:capitalize">${incident.status.replace(/_/g, " ")}</dd>
+  <dt>Address</dt><dd>${incident.address}</dd>
+  <dt>Reported</dt><dd>${new Date(incident.created_at).toLocaleString()}</dd>
+  <dt>Reporter</dt><dd>${incident.reporter_name ?? "N/A"} ${incident.reporter_phone ? `(${incident.reporter_phone})` : ""}</dd>
+  <dt>Hazards</dt><dd>${incident.hazards?.join(", ") || "None"}</dd>
+</dl>
+
+<h2>Description</h2>
+<p>${incident.description ?? "No description provided."}</p>
+
+${triage ? `
+<h2>AI Triage</h2>
+<dl class="meta">
+  <dt>Predicted Type</dt><dd style="text-transform:capitalize">${triage.predicted_type?.replace(/_/g, " ")}</dd>
+  <dt>Predicted Severity</dt><dd><span class="badge ${triage.predicted_severity}">${triage.predicted_severity}</span></dd>
+  <dt>Confidence</dt><dd>${Math.round(triage.confidence * 100)}%</dd>
+  <dt>Crew Size</dt><dd>${triage.recommended_crew_size}</dd>
+  <dt>Model</dt><dd>${triage.model} (${triage.latency_ms}ms)</dd>
+</dl>
+<p><strong>Reasoning:</strong> ${triage.reasoning}</p>
+` : ""}
+
+${dispatches.length > 0 ? `
+<h2>Dispatches</h2>
+<table>
+  <tr><th>Vehicle</th><th>Status</th><th>Assigned</th><th>On Scene</th><th>Distance</th><th>ETA</th></tr>
+  ${dispatches.map((d) => `<tr>
+    <td>${d.vehicle_id.slice(0, 8)}</td>
+    <td style="text-transform:capitalize">${d.status.replace(/_/g, " ")}</td>
+    <td>${new Date(d.assigned_at).toLocaleTimeString()}</td>
+    <td>${d.on_scene_at ? new Date(d.on_scene_at).toLocaleTimeString() : "—"}</td>
+    <td>${d.distance_m ? `${(d.distance_m / 1000).toFixed(1)} km` : "—"}</td>
+    <td>${d.eta_seconds ? `${Math.round(d.eta_seconds / 60)} min` : "—"}</td>
+  </tr>`).join("")}
+</table>
+` : ""}
+
+${report?.ai_summary ? `
+<h2>AI Summary</h2>
+<p>${report.ai_summary}</p>
+${report.cause ? `<p><strong>Probable Cause:</strong> ${report.cause}</p>` : ""}
+${report.response_time_seconds ? `<p><strong>Response Time:</strong> ${Math.round(report.response_time_seconds / 60)}m ${report.response_time_seconds % 60}s</p>` : ""}
+` : ""}
+
+<div class="footer">
+  Generated by Flarepath AI Fire Dispatch Platform — ${new Date().toLocaleString()}<br>
+  San Jose Fire Department
+</div>
+</body></html>`;
+
+  return new NextResponse(html, {
+    headers: {
+      "Content-Type": "text/html",
+      "Content-Disposition": `inline; filename="incident-${incident.id.slice(0, 8)}.html"`,
+    },
+  });
+}
