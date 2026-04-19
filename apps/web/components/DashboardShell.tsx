@@ -3,8 +3,8 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Radio } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Plus } from "lucide-react";
 import IncidentFeed from "./IncidentFeed";
 import IncidentDetail from "./IncidentDetail";
 import LiveMap from "./LiveMap";
@@ -58,33 +58,25 @@ export default function DashboardShell() {
       <KeyboardShortcuts onNewIncident={openNew} onCloseDrawer={closeDrawer} onCommandPalette={togglePalette} />
 
       {/* Left Panel */}
-      <div className="w-[340px] shrink-0 flex flex-col border-r border-white/5 bg-[#0a0a0b]/80 backdrop-blur-xl">
+      <div className="w-[320px] shrink-0 flex flex-col border-r border-white/[0.06] bg-[#09090b]">
         {/* Header */}
-        <div className="border-b border-white/5 px-4 py-4">
+        <div className="border-b border-white/[0.06] px-4 py-3.5">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-base font-bold text-white tracking-tight">Command Center</h1>
-              <div className="mt-1.5 flex items-center gap-3 text-[11px]">
-                <span className="flex items-center gap-1 text-[#ff2d2d]">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff2d2d] opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[#ff2d2d]" />
-                  </span>
-                  {criticalCount} critical
-                </span>
-                <span className="text-[#ffc93c]">{enRouteCount} en route</span>
-                <span className="text-[#3ddc84]">{onSceneCount} on scene</span>
+              <h1 className="text-sm font-semibold text-white/90 tracking-tight">Flarepath</h1>
+              <div className="mt-1 flex items-center gap-2.5 text-[10px] text-white/30">
+                {criticalCount > 0 && <span className="text-[#ff2d2d]">{criticalCount} critical</span>}
+                <span>{activeIncidents.length} active</span>
+                <span>{enRouteCount} en route</span>
               </div>
             </div>
-            <motion.button
+            <button
               onClick={openNew}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-1.5 rounded-lg bg-[#ff2d2d] px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-[#ff2d2d]/20"
+              className="flex items-center gap-1 rounded-md bg-white/[0.08] px-2.5 py-1.5 text-[11px] font-medium text-white/70 transition-colors hover:bg-white/[0.12] hover:text-white"
             >
-              <Plus size={14} />
+              <Plus size={12} />
               New
-            </motion.button>
+            </button>
           </div>
         </div>
 
@@ -93,28 +85,10 @@ export default function DashboardShell() {
           <IncidentFeed onSelect={setSelectedId} selectedId={selectedId} incidents={incidents} isLoading={isLoading} />
         </div>
 
-        {/* Live dispatch ticker */}
-        {activeDispatches.length > 0 && (
-          <div className="border-t border-white/5 px-3 py-2 space-y-1 max-h-28 overflow-auto">
-            <div className="text-[9px] font-semibold text-[#555] uppercase tracking-wider">Live Dispatches</div>
-            {activeDispatches.slice(0, 4).map((d: { id: string; vehicle: { call_sign: string } | null; status: string; eta_seconds: number | null }) => (
-              <div key={d.id} className="flex items-center justify-between text-[10px]">
-                <span className="text-[#ccc]">🚒 {d.vehicle?.call_sign ?? "?"}</span>
-                <span style={{ color: d.status === "en_route" ? "#ffc93c" : d.status === "on_scene" ? "#3ddc84" : "#ff7b1c" }}>
-                  {d.status.replace(/_/g, " ")} {d.eta_seconds ? `· ${Math.ceil(d.eta_seconds / 60)}m` : ""}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="border-t border-white/5 px-4 py-2 flex items-center justify-between text-[10px] text-[#555]">
-          <div className="flex items-center gap-1.5">
-            <Radio size={10} className="text-[#3ddc84]" />
-            <span>SJFD — San Jose Fire Dept</span>
-          </div>
-          <span>{activeDispatches.length} active units</span>
+        {/* Footer — unit count */}
+        <div className="border-t border-white/[0.06] px-4 py-2 flex items-center justify-between text-[10px] text-white/20">
+          <span>SJFD</span>
+          <span>{activeDispatches.length} units deployed</span>
         </div>
       </div>
 
