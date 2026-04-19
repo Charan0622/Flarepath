@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { createClient } from "@/lib/supabase/client";
@@ -16,9 +16,10 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 interface LiveMapProps {
   onIncidentClick?: (id: string) => void;
+  routeGeoJSON?: unknown;
 }
 
-export default function LiveMap({ onIncidentClick }: LiveMapProps) {
+export default function LiveMap({ onIncidentClick, routeGeoJSON }: LiveMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -31,7 +32,7 @@ export default function LiveMap({ onIncidentClick }: LiveMapProps) {
     const map = new mapboxgl.Map({
       container: mapContainer.current,
       style: "mapbox://styles/mapbox/dark-v11",
-      center: [-121.8863, 37.3382], // San Jose
+      center: [-121.8863, 37.3382],
       zoom: 12,
     });
 
@@ -42,83 +43,121 @@ export default function LiveMap({ onIncidentClick }: LiveMapProps) {
     return () => { map.remove(); mapRef.current = null; };
   }, []);
 
-  // Fetch and render markers
-  useEffect(() => {
-    if (!loaded || !mapRef.current) return;
+  const loadMarkers = useCallback(async () => {
+    if (!mapRef.current) return;
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
 
+    const map = mapRef.current;
     const supabase = createClient();
 
-    async function loadMarkers() {
-      // Clear existing markers
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
+    // Stations
+    const { data: stations } = await supabase.from("stations").select("*");
+    stations?.forEach((station) => {
+      const el = document.createElement("div");
+      el.style.cssText = "width:28px;height:28px;border-radius:50%;background:#3b82f6;border:3px solid #1d4ed8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;";
+      el.textContent = "🏠";
+      el.title = station.name;
+      const coords = getStationCoords(station.name);
+      if (coords) {
+        markersRef.current.push(new mapboxgl.Marker(el).setLngLat(coords).addTo(map));
+      }
+    });
 
-      const map = mapRef.current!;
+    // Active incidents
+    const { data: incidents } = await supabase
+      .from("incidents")
+      .select("*")
+      .in("status", ["open", "triaged", "dispatched", "on_scene"]);
 
-      // Fetch stations
-      const { data: stations } = await supabase.from("stations").select("*");
-      stations?.forEach((station) => {
-        const el = document.createElement("div");
-        el.className = "station-marker";
-        el.style.cssText = "width:24px;height:24px;border-radius:50%;background:#3b82f6;border:2px solid #1d4ed8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;";
-        el.textContent = "🏠";
-        el.title = station.name;
+    incidents?.forEach((incident) => {
+      const color = SEVERITY_COLORS[incident.severity] ?? "#888";
+      const el = document.createElement("div");
+      el.style.cssText = `width:22px;height:22px;border-radius:50%;background:${color};border:3px solid ${color}88;cursor:pointer;box-shadow:0 0 12px ${color}60;`;
+      el.title = `${incident.type} - ${incident.address}`;
+      const coords = getIncidentCoords(incident.address);
+      if (coords) {
+        const marker = new mapboxgl.Marker(el).setLngLat(coords).addTo(map);
+        el.addEventListener("click", () => onIncidentClick?.(incident.id));
+        markersRef.current.push(marker);
+      }
+    });
+  }, [onIncidentClick]);
 
-        // Parse WKB hex to get lat/lng — use a simpler approach
-        const marker = new mapboxgl.Marker(el);
-
-        // Stations have location as geography, we need to get coordinates
-        // For now use the seed data coordinates
-        const stationCoords = getStationCoords(station.name);
-        if (stationCoords) {
-          marker.setLngLat(stationCoords).addTo(map);
-          markersRef.current.push(marker);
-        }
-      });
-
-      // Fetch active incidents
-      const { data: incidents } = await supabase
-        .from("incidents")
-        .select("*")
-        .in("status", ["open", "triaged", "dispatched", "on_scene"]);
-
-      incidents?.forEach((incident) => {
-        const color = SEVERITY_COLORS[incident.severity] ?? "#888";
-        const el = document.createElement("div");
-        el.style.cssText = `width:20px;height:20px;border-radius:50%;background:${color};border:2px solid ${color}88;cursor:pointer;box-shadow:0 0 8px ${color}40;`;
-        el.title = `${incident.type} - ${incident.address}`;
-
-        const coords = getIncidentCoords(incident.address);
-        if (coords) {
-          const marker = new mapboxgl.Marker(el)
-            .setLngLat(coords)
-            .addTo(map);
-
-          el.addEventListener("click", () => onIncidentClick?.(incident.id));
-          markersRef.current.push(marker);
-        }
-      });
-    }
-
+  // Load markers on map load
+  useEffect(() => {
+    if (!loaded) return;
     loadMarkers();
 
-    // Subscribe to realtime
+    const supabase = createClient();
     const channel = supabase
       .channel("map-incidents")
-      .on("postgres_changes", { event: "*", schema: "public", table: "incidents" }, () => {
-        loadMarkers();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "incidents" }, () => loadMarkers())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [loaded, onIncidentClick]);
+  }, [loaded, loadMarkers]);
 
-  return (
-    <div ref={mapContainer} className="h-full w-full" />
-  );
+  // Render route (red path)
+  useEffect(() => {
+    if (!loaded || !mapRef.current) return;
+    const map = mapRef.current;
+
+    // Remove existing route layer/source
+    if (map.getLayer("route-line")) map.removeLayer("route-line");
+    if (map.getLayer("route-glow")) map.removeLayer("route-glow");
+    if (map.getSource("route")) map.removeSource("route");
+
+    if (!routeGeoJSON) return;
+
+    map.addSource("route", {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        properties: {},
+        geometry: routeGeoJSON as GeoJSON.Geometry,
+      },
+    });
+
+    // Glow layer (underneath)
+    map.addLayer({
+      id: "route-glow",
+      type: "line",
+      source: "route",
+      paint: {
+        "line-color": "#ff2d2d",
+        "line-width": 12,
+        "line-blur": 8,
+        "line-opacity": 0.4,
+      },
+      layout: { "line-cap": "round", "line-join": "round" },
+    });
+
+    // Main line
+    map.addLayer({
+      id: "route-line",
+      type: "line",
+      source: "route",
+      paint: {
+        "line-color": "#ff2d2d",
+        "line-width": 6,
+        "line-opacity": 0.9,
+      },
+      layout: { "line-cap": "round", "line-join": "round" },
+    });
+
+    // Fit bounds to route
+    const coords = (routeGeoJSON as GeoJSON.LineString).coordinates;
+    if (coords && coords.length > 0) {
+      const bounds = new mapboxgl.LngLatBounds();
+      coords.forEach((coord: number[]) => bounds.extend([coord[0], coord[1]]));
+      map.fitBounds(bounds, { padding: 80, duration: 1000 });
+    }
+  }, [loaded, routeGeoJSON]);
+
+  return <div ref={mapContainer} className="h-full w-full" />;
 }
 
-// Coordinate lookup from seed data (will be replaced with proper geography parsing later)
 function getStationCoords(name: string): [number, number] | null {
   const coords: Record<string, [number, number]> = {
     "SJFD Station 1": [-121.8900, 37.3394],
@@ -141,5 +180,9 @@ function getIncidentCoords(address: string): [number, number] | null {
     "2855 Stevens Creek Blvd, San Jose, CA 95050": [-121.9452, 37.3246],
     "3250 Zanker Rd, San Jose, CA 95134": [-121.9230, 37.4072],
   };
-  return coords[address] ?? null;
+  if (coords[address]) return coords[address];
+  for (const [key, val] of Object.entries(coords)) {
+    if (address.includes(key.split(",")[0])) return val;
+  }
+  return null;
 }

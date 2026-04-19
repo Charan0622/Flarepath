@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { X, Brain, MapPin, Phone, User, AlertTriangle } from "lucide-react";
+import { X, Brain, MapPin, Phone, User, AlertTriangle, Radio } from "lucide-react";
+import DispatchModal from "./DispatchModal";
 
 interface IncidentDetailProps {
   incidentId: string;
   onClose: () => void;
+  onRouteReady?: (geojson: unknown) => void;
 }
 
 async function fetchIncident(id: string) {
@@ -18,8 +21,15 @@ const SEVERITY_COLORS: Record<string, string> = {
   critical: "#ff2d2d", high: "#ff7b1c", medium: "#ffc93c", low: "#3ddc84",
 };
 
-export default function IncidentDetail({ incidentId, onClose }: IncidentDetailProps) {
-  const { data: incident, isLoading } = useQuery({
+const INCIDENT_COORDS: Record<string, { lat: number; lng: number }> = {
+  "201 S 4th St, San Jose, CA 95112": { lat: 37.3335, lng: -121.8850 },
+  "70 S 1st St, San Jose, CA 95113": { lat: 37.3340, lng: -121.8890 },
+};
+
+export default function IncidentDetail({ incidentId, onClose, onRouteReady }: IncidentDetailProps) {
+  const [showDispatch, setShowDispatch] = useState(false);
+
+  const { data: incident, isLoading, refetch } = useQuery({
     queryKey: ["incident", incidentId],
     queryFn: () => fetchIncident(incidentId),
     enabled: !!incidentId,
@@ -36,6 +46,8 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
   if (!incident) return null;
 
   const severityColor = SEVERITY_COLORS[incident.severity] ?? "#888";
+  const canDispatch = ["open", "triaged"].includes(incident.status);
+  const incidentCoords = INCIDENT_COORDS[incident.address] ?? { lat: 37.3382, lng: -121.8863 };
 
   return (
     <div className="flex h-full flex-col">
@@ -119,7 +131,53 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
             </p>
           </div>
         )}
+
+        {/* Dispatches */}
+        {incident.dispatches?.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold text-[#888] uppercase tracking-wider">Dispatched Units</h3>
+            {incident.dispatches.map((d: Record<string, unknown>) => (
+              <div key={d.id as string} className="rounded-lg border border-[#1a1a1e] bg-[#121214] p-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#ccc]">Vehicle: {d.vehicle_id as string}</span>
+                  <span className="rounded bg-[#3ddc84]/10 px-2 py-0.5 text-[#3ddc84]">
+                    {(d.status as string)?.replace(/_/g, " ")}
+                  </span>
+                </div>
+                {d.eta_seconds && (
+                  <p className="mt-1 text-[10px] text-[#555]">
+                    ETA: {Math.round((d.eta_seconds as number) / 60)} min · {Math.round((d.distance_m as number) / 1000 * 10) / 10} km
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Dispatch button */}
+        {canDispatch && (
+          <button
+            onClick={() => setShowDispatch(true)}
+            className="w-full rounded-md bg-[#ff2d2d] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#e02525] flex items-center justify-center gap-2"
+          >
+            <Radio size={16} />
+            Dispatch Resources
+          </button>
+        )}
       </div>
+
+      {/* Dispatch Modal */}
+      <DispatchModal
+        isOpen={showDispatch}
+        incidentId={incidentId}
+        incidentAddress={incident.address}
+        incidentCoords={incidentCoords}
+        onClose={() => setShowDispatch(false)}
+        onDispatched={() => {
+          setShowDispatch(false);
+          refetch();
+        }}
+      />
     </div>
   );
 }
