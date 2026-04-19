@@ -10,7 +10,7 @@
 |---|---|---|---|
 | **0** | 1-2 days | Pre-build: accounts, design, decisions | `[DONE]` |
 | **1** | 4 weeks | MVP — end-to-end demo-ready | `[DONE]` |
-| **2** | 3 weeks | Depth — voice, analytics, offline A* | `[ACTIVE]` |
+| **2** | 3 weeks | Depth — voice, analytics, offline A* | `[DONE]` |
 | **3** | optional | Wow features — CV, citizen PWA, native shell | `[ ]` |
 
 ---
@@ -271,19 +271,19 @@
 
 Only start Phase 2 if Phase 1 is truly done and deployed.
 
-### Week 5 — Voice Intake & AI Summaries `[ ]`
+### Week 5 — Voice Intake & AI Summaries `[DONE]`
 - Groq Whisper integration for dispatcher dictation
 - Auto-fill the new-incident form from transcription
 - Scheduled Edge Function generates post-incident summaries
 - LangSmith or custom AI evaluation dashboard
 
-### Week 6 — Analytics `[ ]`
+### Week 6 — Analytics `[DONE]`
 - Chief dashboard: response-time trends, crew utilization
 - Recharts visualizations
 - Materialized views for fast aggregates
 - CSV export
 
-### Week 7 — Offline A* & Heatmap `[ ]`
+### Week 7 — Offline A* & Heatmap `[DONE]`
 - A* implementation in `packages/core/domain/routing`
 - OSM data preprocessor → compact graph JSON
 - Web Worker to run pathfinding off the main thread
@@ -324,6 +324,12 @@ Add a row every time you make a call you might second-guess later.
 
 *Append a one-line entry each time a task is completed. Newest at the top.*
 
+- 2026-04-19 — [7.2] — Predictive heatmap overlay with Mapbox heatmap layer and toggle control
+- 2026-04-19 — [7.1] — A* pathfinding: MinHeap, haversine heuristic, graph builder, /api/route/fallback
+- 2026-04-19 — [6.1] — Analytics dashboard: stat cards, bar/pie/line charts (Recharts), CSV export
+- 2026-04-19 — [5.3] — Post-incident AI summary: Gemini report generation, incident_reports table
+- 2026-04-19 — [5.2] — Voice-to-incident: Gemini extraction from transcript, auto-fill form
+- 2026-04-19 — [5.1] — Groq Whisper transcription: /api/ai/transcribe, VoiceRecorder component
 - 2026-04-19 — [4.6] — README.md with feature overview, tech stack, demo script, setup guide
 - 2026-04-19 — [4.5] — Polish: loading skeletons, toast notifications, Cmd+K palette, keyboard shortcuts (N/Esc)
 - 2026-04-19 — [4.4] — Off-route detection with haversine distance + re-route trigger

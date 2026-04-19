@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { X, Loader2 } from "lucide-react";
+import VoiceRecorder from "./VoiceRecorder";
 
 const formSchema = z.object({
   reporter_name: z.string().min(1, "Reporter name is required"),
@@ -141,6 +142,20 @@ export default function NewIncidentModal({ isOpen, onClose, onCreated }: Props) 
 
         {/* Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="max-h-[70vh] overflow-auto p-6 space-y-4">
+          {/* Voice Dictation */}
+          <VoiceRecorder
+            onTranscript={({ extracted }) => {
+              if (extracted) {
+                if (extracted.reporter_name) setValue("reporter_name", extracted.reporter_name);
+                if (extracted.reporter_phone) setValue("reporter_phone", extracted.reporter_phone);
+                if (extracted.address) setValue("address", extracted.address);
+                if (extracted.type) setValue("type", extracted.type as FormData["type"]);
+                if (extracted.description) setValue("description", extracted.description);
+                if (extracted.hazards?.length) setValue("hazards", extracted.hazards);
+              }
+            }}
+          />
+
           {/* Reporter */}
           <div className="grid grid-cols-2 gap-3">
             <div>

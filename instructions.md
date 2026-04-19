@@ -645,11 +645,112 @@ flarepath/
 | `f0acbe0` | 2026-04-19 | Phase 1 Week 2: Incidents, AI triage, live map, incident form |
 | `a2a3ac0` | 2026-04-19 | Phase 1 Week 3: Dispatch, routing, red path, Web Push |
 | `26deef4` | 2026-04-19 | Phase 1 Week 4: Mobile responder, turn-by-turn navigation, GPS tracking |
+| `29f28b4` | 2026-04-19 | Phase 1 complete: Polish pass, README, comprehensive build log |
 
 ---
 
-## Phase 2 — Depth (Week 5-7)
-*Will be updated after Phase 2 begins.*
+## Phase 2 — Depth (2026-04-19)
+
+### Week 5: Voice Intake & AI Summaries
+
+#### 5.1 Groq Whisper Transcription
+
+**Dependencies installed:**
+```bash
+pnpm add --filter web groq-sdk
+```
+
+**File created:** `apps/web/app/api/ai/transcribe/route.ts`
+- `POST` accepts `multipart/form-data` with an `audio` file field
+- Sends to Groq's Whisper Large V3 model for transcription
+- Returns: `{ text, model, latency_ms }`
+
+**What is Groq?** An AI inference company with specialized hardware (LPUs) that runs models extremely fast. Their Whisper API transcribes audio in near-real-time. Free tier is generous enough for demo traffic.
+
+**What is Whisper?** OpenAI's open-source speech recognition model. Whisper Large V3 handles accented English, background noise, and domain-specific vocabulary (fire/emergency terms) well.
+
+#### 5.2 Voice-to-Incident Extraction
+
+**Files created:**
+- `apps/web/lib/ai/extract.ts` — sends transcript to Gemini with a structured extraction prompt. Pulls out: reporter name, phone, address, incident type, description, hazards. Falls back to raw transcript if extraction fails.
+- `apps/web/app/api/ai/extract/route.ts` — `POST` endpoint wrapping the extraction function
+- `apps/web/components/VoiceRecorder.tsx` — browser microphone recorder:
+  1. Uses `navigator.mediaDevices.getUserMedia({ audio: true })` to capture mic
+  2. Records with `MediaRecorder` API to webm format
+  3. On stop: sends audio to `/api/ai/transcribe` → gets text
+  4. Sends text to `/api/ai/extract` → gets structured fields
+  5. Auto-fills the new incident form with extracted data
+
+**Wired into:** `NewIncidentModal.tsx` — "Dictate incident" button appears above the form. Clicking starts recording, stopping triggers the transcribe → extract → prefill pipeline.
+
+**End-to-end flow:**
+```
+Dispatcher speaks → MediaRecorder (webm) → Groq Whisper (text) → Gemini (structured JSON) → form fields populated
+```
+Target latency: <3 seconds total.
+
+#### 5.3 Post-Incident AI Summary
+
+**Migration created:** `00003_incident_reports.sql`
+- `incident_reports` table: `ai_summary`, `cause`, `response_time_seconds`, `units_involved`, `injuries`, `fatalities`
+- RLS: org members can read, service role can insert/update
+
+**Files created:**
+- `apps/web/lib/ai/summarize.ts` — sends incident data to Gemini, gets back: 3-paragraph summary, probable cause, response time assessment, key actions, recommendations
+- `apps/web/app/api/ai/summarize/[incidentId]/route.ts` — `POST` fetches incident + dispatches, generates summary, calculates response time from dispatch timestamps, upserts into `incident_reports`
+
+---
+
+### Week 6: Analytics Dashboard
+
+**Dependencies installed:**
+```bash
+pnpm add --filter web recharts
+```
+
+**What is Recharts?** A React charting library built on D3. It provides declarative chart components (BarChart, PieChart, LineChart) that integrate naturally with React state and props.
+
+**Files created:**
+- `apps/web/app/api/analytics/route.ts` — `GET` aggregates all incident/dispatch/vehicle data:
+  - Summary stats: total incidents, active count, dispatches, avg response time, fleet status
+  - Chart data: incidents by status, by type, by severity, per day timeline, response times array
+- `apps/web/app/(desktop)/analytics/page.tsx` — full analytics page:
+  - **4 stat cards:** total incidents, dispatches, avg response time, fleet utilization
+  - **Bar chart:** incidents by type (color-coded)
+  - **Pie chart:** severity distribution (using severity colors)
+  - **Line chart:** incidents over time (daily trend)
+  - **CSV export** button: downloads summary metrics as a .csv file
+
+---
+
+### Week 7: A* Pathfinding & Heatmap
+
+#### 7.1 A* Pathfinding (Offline Routing Fallback)
+
+**File created:** `packages/core/src/domain/routing/astar.ts`
+
+Full A* implementation in pure TypeScript:
+- **MinHeap** priority queue for O(log n) pop operations
+- **Haversine heuristic** for geographic accuracy (accounts for Earth curvature)
+- **Graph structure:** nodes (intersections) + weighted edges (road segments, weight = travel time in seconds)
+- **`buildSimpleGraph()`** utility: takes a list of lat/lng points and connects each to its N nearest neighbors
+- Returns: path (node IDs), coordinates (for rendering), total distance, total time
+
+**API endpoint:** `GET /api/route/fallback` — same interface as `/api/route/optimize` but uses A* instead of Mapbox. Used when Mapbox rate-limits or is unreachable.
+
+**What is A*?** A graph search algorithm that finds the shortest path between two nodes. Unlike Dijkstra (which explores all directions equally), A* uses a heuristic (estimated distance to goal) to prioritize nodes that are likely closer to the destination. This makes it much faster in practice. Haversine distance is the heuristic because it gives the straight-line distance on a sphere.
+
+**Why build a custom fallback?** Two reasons: (1) demo reliability — if Mapbox rate-limits during a live demo, the app still routes; (2) interview talking point — shows you understand pathfinding algorithms, not just API calls.
+
+#### 7.2 Predictive Heatmap
+
+**File created:** `apps/web/components/HeatmapToggle.tsx`
+- Mapbox heatmap layer using `type: "heatmap"` with weighted density points
+- Color ramp: transparent → green → yellow → orange → red (matches severity palette)
+- Toggle button in the top-right corner of the map
+- Uses sample historical incident density data (in production, would pull from API)
+
+**What is a heatmap layer?** A Mapbox layer type that visualizes point density using color gradients. Each point has a weight (0-1), and areas with many high-weight points glow red while sparse areas stay green. Useful for briefings — dispatchers can see at a glance which neighborhoods have the most incidents.
 
 ---
 
@@ -658,4 +759,4 @@ flarepath/
 
 ---
 
-*Last updated: 2026-04-19 — Phase 1 MVP complete, polish pass in progress*
+*Last updated: 2026-04-19 — Phase 2 complete (voice intake, analytics, A*, heatmap)*
