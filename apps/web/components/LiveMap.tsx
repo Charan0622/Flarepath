@@ -10,6 +10,10 @@ const SEVERITY_COLORS: Record<string, string> = {
   critical: "#ff2d2d", high: "#ff7b1c", medium: "#ffc93c", low: "#3ddc84",
 };
 
+const DISPATCH_STATUS_COLORS: Record<string, string> = {
+  assigned: "#ff2d2d", acknowledged: "#ff7b1c", en_route: "#ffc93c", on_scene: "#3ddc84",
+};
+
 const STATIONS = [
   { name: "SJFD Station 1", coords: [-121.8900, 37.3394] as [number, number] },
   { name: "SJFD Station 7", coords: [-121.9148, 37.3295] as [number, number] },
@@ -29,19 +33,30 @@ const INCIDENT_COORDS: Record<string, [number, number]> = {
   "3250 Zanker Rd, San Jose, CA 95134": [-121.9230, 37.4072],
 };
 
-interface Incident {
+const STATION_COORDS: Record<string, [number, number]> = {
+  "fcf13ccd-c48b-454e-9880-1bac61c187b6": [-121.8900, 37.3394],
+  "55a9c33d-6e0b-43c4-a026-89e6833570c2": [-121.9148, 37.3295],
+  "13402c9f-d7bb-42fe-91df-fb3b4e737eb1": [-121.8350, 37.3660],
+};
+
+interface Incident { id: string; type: string; severity: string; address: string; status: string; }
+interface ActiveDispatch {
   id: string;
-  type: string;
-  severity: string;
-  address: string;
+  incident_id: string;
+  vehicle_id: string;
   status: string;
+  route_geojson: GeoJSON.LineString | null;
+  distance_m: number | null;
+  eta_seconds: number | null;
+  vehicle: { call_sign: string; type: string; station_id: string } | null;
+  incident: { type: string; severity: string; address: string } | null;
 }
 
 interface LiveMapProps {
   onIncidentClick?: (id: string) => void;
-  routeGeoJSON?: unknown;
   incidents?: Incident[];
-  dispatchedVehicleCoords?: { lng: number; lat: number } | null;
+  activeDispatches?: ActiveDispatch[];
+  selectedIncidentId?: string | null;
 }
 
 function createFireMarkerEl(severity: string): HTMLDivElement {
@@ -51,63 +66,51 @@ function createFireMarkerEl(severity: string): HTMLDivElement {
   el.innerHTML = `
     <div style="position:relative;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
       ${isCritical ? `<div style="position:absolute;inset:-4px;border-radius:50%;background:${color}30;animation:pulse-ring 1.5s ease-out infinite;"></div>` : ""}
-      <div style="width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 30% 30%,${color},${color}99);border:2px solid ${color};display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 16px ${color}60,0 0 32px ${color}30;transition:transform 0.2s;">
-        🔥
-      </div>
-    </div>
-  `;
-  el.onmouseenter = () => { const inner = el.querySelector("div > div:last-child") as HTMLElement; if (inner) inner.style.transform = "scale(1.2)"; };
-  el.onmouseleave = () => { const inner = el.querySelector("div > div:last-child") as HTMLElement; if (inner) inner.style.transform = "scale(1)"; };
+      <div style="width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 30% 30%,${color},${color}99);border:2px solid ${color};display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 16px ${color}60,0 0 32px ${color}30;transition:transform 0.2s;">🔥</div>
+    </div>`;
+  el.onmouseenter = () => { const d = el.querySelector("div > div:last-child") as HTMLElement; if (d) d.style.transform = "scale(1.2)"; };
+  el.onmouseleave = () => { const d = el.querySelector("div > div:last-child") as HTMLElement; if (d) d.style.transform = "scale(1)"; };
   return el;
 }
 
 function createStationMarkerEl(name: string): HTMLDivElement {
   const el = document.createElement("div");
   el.innerHTML = `
-    <div style="position:relative;width:40px;height:40px;cursor:pointer;" title="${name}">
-      <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#1e40af,#3b82f6);border:2px solid #60a5fa;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(59,130,246,0.4);transition:transform 0.2s;">
-        🏢
-      </div>
-      <div style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;color:#60a5fa;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.8);">
-        ${name.replace("SJFD ", "")}
-      </div>
-    </div>
-  `;
+    <div style="position:relative;width:40px;height:48px;cursor:pointer;" title="${name}">
+      <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#1e40af,#3b82f6);border:2px solid #60a5fa;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(59,130,246,0.4);">🏢</div>
+      <div style="position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;color:#60a5fa;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.8);">${name.replace("SJFD ", "")}</div>
+    </div>`;
   return el;
 }
 
-function createVehicleMarkerEl(): HTMLDivElement {
+function createVehicleMarkerEl(callSign: string, status: string): HTMLDivElement {
+  const color = DISPATCH_STATUS_COLORS[status] ?? "#888";
+  const isMoving = status === "en_route";
   const el = document.createElement("div");
   el.innerHTML = `
-    <div style="position:relative;width:44px;height:44px;">
-      <div style="position:absolute;inset:0;border-radius:50%;background:#ff2d2d30;animation:pulse-ring 2s ease-out infinite;"></div>
-      <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#dc2626,#ff2d2d);border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 20px rgba(255,45,45,0.6),0 4px 12px rgba(0,0,0,0.4);">
-        🚒
-      </div>
-    </div>
-  `;
+    <div style="position:relative;width:56px;height:56px;display:flex;align-items:center;justify-content:center;">
+      ${isMoving ? `<div style="position:absolute;inset:0;border-radius:50%;border:2px solid ${color};animation:pulse-ring 2s ease-out infinite;"></div>` : ""}
+      <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#1a1a1e,#121214);border:2.5px solid ${color};display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 20px ${color}40,0 4px 12px rgba(0,0,0,0.5);">🚒</div>
+      <div style="position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);white-space:nowrap;background:${color};color:#000;font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;letter-spacing:0.5px;">${callSign}</div>
+      <div style="position:absolute;top:-8px;right:-4px;background:${color};color:#000;font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px;text-transform:uppercase;">${status.replace(/_/g, " ")}</div>
+    </div>`;
   return el;
 }
 
-export default function LiveMap({ onIncidentClick, routeGeoJSON, incidents, dispatchedVehicleCoords }: LiveMapProps) {
+export default function LiveMap({ onIncidentClick, incidents, activeDispatches, selectedIncidentId }: LiveMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const incidentMarkersRef = useRef<mapboxgl.Marker[]>([]);
-  const vehicleMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const vehicleMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const routeLayerIdsRef = useRef<string[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const animFrameRef = useRef<number>(0);
 
-  // Inject CSS for pulse animation
+  // Inject pulse CSS
   useEffect(() => {
     if (document.getElementById("map-pulse-css")) return;
     const style = document.createElement("style");
     style.id = "map-pulse-css";
-    style.textContent = `
-      @keyframes pulse-ring {
-        0% { transform: scale(0.8); opacity: 1; }
-        100% { transform: scale(2); opacity: 0; }
-      }
-    `;
+    style.textContent = `@keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 1; } 100% { transform: scale(2.2); opacity: 0; } }`;
     document.head.appendChild(style);
   }, []);
 
@@ -133,8 +136,7 @@ export default function LiveMap({ onIncidentClick, routeGeoJSON, incidents, disp
     if (!loaded || !mapRef.current) return;
     STATIONS.forEach((s) => {
       new mapboxgl.Marker({ element: createStationMarkerEl(s.name), anchor: "center" })
-        .setLngLat(s.coords)
-        .addTo(mapRef.current!);
+        .setLngLat(s.coords).addTo(mapRef.current!);
     });
   }, [loaded]);
 
@@ -143,6 +145,7 @@ export default function LiveMap({ onIncidentClick, routeGeoJSON, incidents, disp
     if (!loaded || !mapRef.current || !incidents) return;
     incidentMarkersRef.current.forEach((m) => m.remove());
     incidentMarkersRef.current = [];
+    const map = mapRef.current;
 
     incidents
       .filter((i) => !["resolved", "cancelled"].includes(i.status))
@@ -151,139 +154,111 @@ export default function LiveMap({ onIncidentClick, routeGeoJSON, incidents, disp
         if (!coords) return;
         const el = createFireMarkerEl(incident.severity);
         el.addEventListener("click", () => onIncidentClick?.(incident.id));
-
-        // Popup on hover
-        const popup = new mapboxgl.Popup({ offset: 20, closeButton: false, className: "flarepath-popup" })
-          .setHTML(`
-            <div style="background:#121214;border:1px solid #2a2a2e;border-radius:8px;padding:8px 12px;color:#ededed;font-size:12px;">
-              <div style="font-weight:600;text-transform:capitalize;margin-bottom:2px;">${incident.type.replace(/_/g, " ")}</div>
-              <div style="color:#888;font-size:10px;">${incident.address}</div>
-              <div style="margin-top:4px;">
-                <span style="background:${SEVERITY_COLORS[incident.severity]}20;color:${SEVERITY_COLORS[incident.severity]};padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;">${incident.severity}</span>
-              </div>
-            </div>
-          `);
-
-        const marker = new mapboxgl.Marker({ element: el, anchor: "center" })
-          .setLngLat(coords)
-          .setPopup(popup)
-          .addTo(mapRef.current!);
-
+        const marker = new mapboxgl.Marker({ element: el, anchor: "center" }).setLngLat(coords).addTo(map);
         incidentMarkersRef.current.push(marker);
       });
   }, [loaded, incidents, onIncidentClick]);
 
-  // Route rendering with animated drawing
+  // ALL active routes + vehicle markers simultaneously
   useEffect(() => {
     if (!loaded || !mapRef.current) return;
     const map = mapRef.current;
 
-    ["route-line", "route-glow", "route-casing"].forEach((id) => {
+    // Clear old routes
+    routeLayerIdsRef.current.forEach((id) => {
       if (map.getLayer(id)) map.removeLayer(id);
     });
-    if (map.getSource("route")) map.removeSource("route");
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-
-    if (!routeGeoJSON) return;
-
-    const geom = routeGeoJSON as GeoJSON.LineString;
-    const allCoords = geom.coordinates;
-
-    map.addSource("route", {
-      type: "geojson",
-      data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [] } },
+    routeLayerIdsRef.current.forEach((id) => {
+      const srcId = id.replace(/-line$|-glow$|-casing$/, "");
+      if (map.getSource(srcId) && !routeLayerIdsRef.current.some((lid) => lid !== id && lid.startsWith(srcId) && map.getLayer(lid))) {
+        map.removeSource(srcId);
+      }
     });
+    routeLayerIdsRef.current = [];
 
-    // Dark casing (underneath)
-    map.addLayer({
-      id: "route-casing",
-      type: "line",
-      source: "route",
-      paint: { "line-color": "#000", "line-width": 12, "line-opacity": 0.3 },
-      layout: { "line-cap": "round", "line-join": "round" },
-    });
+    // Clear old vehicle markers
+    vehicleMarkersRef.current.forEach((m) => m.remove());
+    vehicleMarkersRef.current = [];
 
-    // Glow
-    map.addLayer({
-      id: "route-glow",
-      type: "line",
-      source: "route",
-      paint: { "line-color": "#ff2d2d", "line-width": 14, "line-blur": 12, "line-opacity": 0.5 },
-      layout: { "line-cap": "round", "line-join": "round" },
-    });
+    if (!activeDispatches || activeDispatches.length === 0) return;
 
-    // Main line
-    map.addLayer({
-      id: "route-line",
-      type: "line",
-      source: "route",
-      paint: { "line-color": "#ff2d2d", "line-width": 5, "line-opacity": 1 },
-      layout: { "line-cap": "round", "line-join": "round" },
-    });
+    const addedSources = new Set<string>();
 
-    // Animate the path drawing
-    let step = 0;
-    const totalSteps = allCoords.length;
-    const speed = 3; // coords per frame
+    activeDispatches.forEach((dispatch, idx) => {
+      if (!dispatch.route_geojson) return;
 
-    function animateDraw() {
-      step = Math.min(step + speed, totalSteps);
-      const partial = allCoords.slice(0, step);
-      if (partial.length >= 2) {
-        const source = map.getSource("route") as mapboxgl.GeoJSONSource;
-        source?.setData({
-          type: "Feature",
-          properties: {},
-          geometry: { type: "LineString", coordinates: partial },
+      const isSelected = dispatch.incident_id === selectedIncidentId;
+      const opacity = isSelected ? 1 : 0.5;
+      const width = isSelected ? 6 : 3;
+      const srcId = `route-${idx}`;
+
+      if (!addedSources.has(srcId)) {
+        map.addSource(srcId, {
+          type: "geojson",
+          data: { type: "Feature", properties: {}, geometry: dispatch.route_geojson },
         });
+        addedSources.add(srcId);
       }
-      if (step < totalSteps) {
-        animFrameRef.current = requestAnimationFrame(animateDraw);
+
+      // Glow
+      const glowId = `${srcId}-glow`;
+      map.addLayer({
+        id: glowId,
+        type: "line",
+        source: srcId,
+        paint: { "line-color": "#ff2d2d", "line-width": width * 2.5, "line-blur": 10, "line-opacity": opacity * 0.35 },
+        layout: { "line-cap": "round", "line-join": "round" },
+      });
+      routeLayerIdsRef.current.push(glowId);
+
+      // Line
+      const lineId = `${srcId}-line`;
+      map.addLayer({
+        id: lineId,
+        type: "line",
+        source: srcId,
+        paint: { "line-color": "#ff2d2d", "line-width": width, "line-opacity": opacity },
+        layout: { "line-cap": "round", "line-join": "round" },
+      });
+      routeLayerIdsRef.current.push(lineId);
+
+      // Vehicle marker at the appropriate position along the route
+      if (dispatch.vehicle) {
+        const coords = dispatch.route_geojson.coordinates;
+        let vehiclePos: [number, number];
+
+        if (dispatch.status === "on_scene") {
+          // At the destination
+          vehiclePos = coords[coords.length - 1] as [number, number];
+        } else if (dispatch.status === "en_route") {
+          // Simulate position ~40% along the route
+          const mid = Math.floor(coords.length * 0.4);
+          vehiclePos = coords[mid] as [number, number];
+        } else {
+          // At the station (origin)
+          vehiclePos = coords[0] as [number, number];
+        }
+
+        const vehicleEl = createVehicleMarkerEl(dispatch.vehicle.call_sign, dispatch.status);
+        const vehicleMarker = new mapboxgl.Marker({ element: vehicleEl, anchor: "center" })
+          .setLngLat(vehiclePos)
+          .addTo(map);
+        vehicleMarkersRef.current.push(vehicleMarker);
+      }
+    });
+
+    // If an incident is selected, fit to its route
+    if (selectedIncidentId) {
+      const selectedDispatches = activeDispatches.filter((d) => d.incident_id === selectedIncidentId && d.route_geojson);
+      if (selectedDispatches.length > 0) {
+        const bounds = new mapboxgl.LngLatBounds();
+        selectedDispatches.forEach((d) => {
+          d.route_geojson!.coordinates.forEach((c: number[]) => bounds.extend([c[0], c[1]]));
+        });
+        map.fitBounds(bounds, { padding: 100, duration: 800 });
       }
     }
-
-    // Fit bounds first, then animate
-    const bounds = new mapboxgl.LngLatBounds();
-    allCoords.forEach((c: number[]) => bounds.extend([c[0], c[1]]));
-    map.fitBounds(bounds, { padding: 100, duration: 800 });
-    setTimeout(() => animateDraw(), 900);
-
-  }, [loaded, routeGeoJSON]);
-
-  // Vehicle marker (dispatched vehicle moving)
-  useEffect(() => {
-    if (!loaded || !mapRef.current) return;
-
-    if (!dispatchedVehicleCoords) {
-      vehicleMarkerRef.current?.remove();
-      vehicleMarkerRef.current = null;
-      return;
-    }
-
-    if (!vehicleMarkerRef.current) {
-      vehicleMarkerRef.current = new mapboxgl.Marker({
-        element: createVehicleMarkerEl(),
-        anchor: "center",
-      }).setLngLat([dispatchedVehicleCoords.lng, dispatchedVehicleCoords.lat])
-        .addTo(mapRef.current);
-    } else {
-      // Smooth transition to new position
-      const start = vehicleMarkerRef.current.getLngLat();
-      const end = dispatchedVehicleCoords;
-      const duration = 1000;
-      const startTime = performance.now();
-
-      function animateVehicle(now: number) {
-        const t = Math.min((now - startTime) / duration, 1);
-        const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // ease-in-out
-        const lng = start.lng + (end.lng - start.lng) * eased;
-        const lat = start.lat + (end.lat - start.lat) * eased;
-        vehicleMarkerRef.current?.setLngLat([lng, lat]);
-        if (t < 1) requestAnimationFrame(animateVehicle);
-      }
-      requestAnimationFrame(animateVehicle);
-    }
-  }, [loaded, dispatchedVehicleCoords]);
+  }, [loaded, activeDispatches, selectedIncidentId]);
 
   return <div ref={mapContainer} className="h-full w-full" />;
 }

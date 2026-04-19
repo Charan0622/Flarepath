@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,12 +19,16 @@ async function fetchIncidents() {
   return json.data?.incidents ?? [];
 }
 
+async function fetchActiveDispatches() {
+  const res = await fetch("/api/dispatch/active");
+  const json = await res.json();
+  return json.data?.dispatches ?? [];
+}
+
 export default function DashboardShell() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [simulatingVehicle, setSimulatingVehicle] = useState<{ lng: number; lat: number } | null>(null);
-  const [routeGeoJSON, setRouteGeoJSON] = useState<unknown>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -33,46 +37,34 @@ export default function DashboardShell() {
     queryFn: fetchIncidents,
   });
 
+  const { data: activeDispatches = [] } = useQuery({
+    queryKey: ["active-dispatches"],
+    queryFn: fetchActiveDispatches,
+    refetchInterval: 10000, // Refresh every 10s for live feel
+  });
+
   const openNew = useCallback(() => setShowNewForm(true), []);
-  const closeDrawer = useCallback(() => { setSelectedId(null); setRouteGeoJSON(null); setSimulatingVehicle(null); }, []);
+  const closeDrawer = useCallback(() => setSelectedId(null), []);
   const togglePalette = useCallback(() => setShowCommandPalette((p) => !p), []);
 
-  // Simulate vehicle movement when a dispatched incident is selected
-  useEffect(() => {
-    if (!selectedId || !routeGeoJSON) return;
-    const geom = routeGeoJSON as GeoJSON.LineString;
-    const coords = geom.coordinates;
-    if (!coords || coords.length < 2) return;
-
-    let step = 0;
-    const interval = setInterval(() => {
-      if (step >= coords.length) {
-        clearInterval(interval);
-        return;
-      }
-      setSimulatingVehicle({ lng: coords[step][0], lat: coords[step][1] });
-      step += 2;
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [selectedId, routeGeoJSON]);
-
-  // Active counts for header
-  const criticalCount = incidents.filter((i: { severity: string; status: string }) => i.severity === "critical" && !["resolved", "cancelled"].includes(i.status)).length;
-  const activeCount = incidents.filter((i: { status: string }) => !["resolved", "cancelled"].includes(i.status)).length;
+  // Live counts
+  const activeIncidents = incidents.filter((i: { status: string }) => !["resolved", "cancelled"].includes(i.status));
+  const criticalCount = activeIncidents.filter((i: { severity: string }) => i.severity === "critical").length;
+  const enRouteCount = activeDispatches.filter((d: { status: string }) => d.status === "en_route").length;
+  const onSceneCount = activeDispatches.filter((d: { status: string }) => d.status === "on_scene").length;
 
   return (
     <div className="flex h-full bg-[#050507]">
       <KeyboardShortcuts onNewIncident={openNew} onCloseDrawer={closeDrawer} onCommandPalette={togglePalette} />
 
-      {/* Left Panel — Glass effect */}
+      {/* Left Panel */}
       <div className="w-[340px] shrink-0 flex flex-col border-r border-white/5 bg-[#0a0a0b]/80 backdrop-blur-xl">
         {/* Header */}
         <div className="border-b border-white/5 px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-base font-bold text-white tracking-tight">Command Center</h1>
-              <div className="mt-1 flex items-center gap-3 text-[11px]">
+              <div className="mt-1.5 flex items-center gap-3 text-[11px]">
                 <span className="flex items-center gap-1 text-[#ff2d2d]">
                   <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff2d2d] opacity-75" />
@@ -80,7 +72,8 @@ export default function DashboardShell() {
                   </span>
                   {criticalCount} critical
                 </span>
-                <span className="text-[#888]">{activeCount} active</span>
+                <span className="text-[#ffc93c]">{enRouteCount} en route</span>
+                <span className="text-[#3ddc84]">{onSceneCount} on scene</span>
               </div>
             </div>
             <motion.button
@@ -100,42 +93,43 @@ export default function DashboardShell() {
           <IncidentFeed onSelect={setSelectedId} selectedId={selectedId} incidents={incidents} isLoading={isLoading} />
         </div>
 
-        {/* Bottom status bar */}
+        {/* Live dispatch ticker */}
+        {activeDispatches.length > 0 && (
+          <div className="border-t border-white/5 px-3 py-2 space-y-1 max-h-28 overflow-auto">
+            <div className="text-[9px] font-semibold text-[#555] uppercase tracking-wider">Live Dispatches</div>
+            {activeDispatches.slice(0, 4).map((d: { id: string; vehicle: { call_sign: string } | null; status: string; eta_seconds: number | null }) => (
+              <div key={d.id} className="flex items-center justify-between text-[10px]">
+                <span className="text-[#ccc]">🚒 {d.vehicle?.call_sign ?? "?"}</span>
+                <span style={{ color: d.status === "en_route" ? "#ffc93c" : d.status === "on_scene" ? "#3ddc84" : "#ff7b1c" }}>
+                  {d.status.replace(/_/g, " ")} {d.eta_seconds ? `· ${Math.ceil(d.eta_seconds / 60)}m` : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
         <div className="border-t border-white/5 px-4 py-2 flex items-center justify-between text-[10px] text-[#555]">
           <div className="flex items-center gap-1.5">
             <Radio size={10} className="text-[#3ddc84]" />
             <span>SJFD — San Jose Fire Dept</span>
           </div>
-          <span>Live</span>
+          <span>{activeDispatches.length} active units</span>
         </div>
       </div>
 
-      {/* Center — Map */}
+      {/* Center — Map with ALL routes + vehicles */}
       <div className="relative flex-1">
         <LiveMap
           onIncidentClick={setSelectedId}
           incidents={incidents}
-          routeGeoJSON={routeGeoJSON}
-          dispatchedVehicleCoords={simulatingVehicle}
+          activeDispatches={activeDispatches}
+          selectedIncidentId={selectedId}
         />
         <WeatherWidget />
-
-        {/* Live stats overlay */}
-        <div className="absolute bottom-4 left-4 z-10 flex gap-2">
-          {[
-            { label: "Engines", value: "4/6", color: "#3ddc84" },
-            { label: "Ladders", value: "0/1", color: "#ff7b1c" },
-            { label: "Rescue", value: "1/1", color: "#3b82f6" },
-          ].map((stat) => (
-            <div key={stat.label} className="rounded-lg bg-[#121214]/80 backdrop-blur-sm border border-white/5 px-3 py-1.5">
-              <div className="text-[10px] text-[#555]">{stat.label}</div>
-              <div className="text-sm font-bold" style={{ color: stat.color }}>{stat.value}</div>
-            </div>
-          ))}
-        </div>
       </div>
 
-      {/* Right Panel — Detail */}
+      {/* Right Panel */}
       <AnimatePresence>
         {selectedId && (
           <motion.div
@@ -146,17 +140,12 @@ export default function DashboardShell() {
             className="shrink-0 border-l border-white/5 overflow-hidden bg-[#0a0a0b]/90 backdrop-blur-xl"
           >
             <div className="w-96 h-full overflow-auto">
-              <IncidentDetail
-                incidentId={selectedId}
-                onClose={closeDrawer}
-                onRouteReady={(geojson) => setRouteGeoJSON(geojson)}
-              />
+              <IncidentDetail incidentId={selectedId} onClose={closeDrawer} />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Modals */}
       <AnimatePresence>
         {showNewForm && (
           <NewIncidentModal
@@ -166,6 +155,7 @@ export default function DashboardShell() {
               setShowNewForm(false);
               setSelectedId(id);
               queryClient.invalidateQueries({ queryKey: ["incidents"] });
+              queryClient.invalidateQueries({ queryKey: ["active-dispatches"] });
             }}
           />
         )}
