@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --background: #0a0a0b;
+  --background: #050507;
   --foreground: #ededed;
   --severity-critical: #ff2d2d;
   --severity-high: #ff7b1c;
@@ -14,4 +14,42 @@
 body {
   color: var(--foreground);
   background: var(--background);
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #1a1a1e;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a2a2e;
+}
+
+/* Mapbox popup override */
+.mapboxgl-popup-content {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.mapboxgl-popup-tip {
+  border-top-color: #121214 !important;
+}
+.mapboxgl-popup-close-button {
+  display: none;
+}
+
+/* Smooth page transitions */
+main {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import { X, Brain, MapPin, Phone, User, AlertTriangle, Radio, FileText, MessageSquare } from "lucide-react";
 import DispatchModal from "./DispatchModal";
 import IncidentChat from "./IncidentChat";
@@ -35,6 +36,13 @@ export default function IncidentDetail({ incidentId, onClose, onRouteReady }: In
     queryFn: () => fetchIncident(incidentId),
     enabled: !!incidentId,
   });
+
+  // Send route to parent for map rendering
+  useEffect(() => {
+    if (incident?.dispatches?.[0]?.route_geojson && onRouteReady) {
+      onRouteReady(incident.dispatches[0].route_geojson);
+    }
+  }, [incident, onRouteReady]);
 
   if (isLoading) {
     return (
