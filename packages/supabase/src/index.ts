@@ -1,1 +1,2 @@
-// Supabase client + generated types — add after first migration
+export { supabase } from "./client";
+export { supabaseAdmin } from "./server";

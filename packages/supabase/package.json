@@ -8,5 +8,8 @@
     "generate": "echo \"Run supabase gen types after schema changes\" && exit 0",
     "typecheck": "tsc --noEmit",
     "lint": "echo \"No lint config yet\" && exit 0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.3"
   }
 }

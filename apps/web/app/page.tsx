@@ -1,6 +1,11 @@
-export default function Home() {
+import { createClient } from "@/lib/supabase/server";
+
+export default async function HomePage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 font-[family-name:var(--font-geist-sans)]">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 font-[family-name:var(--font-geist-sans)]">
       <div className="flex items-center gap-3">
         <span className="text-5xl">🚒</span>
         <h1 className="text-4xl font-bold tracking-tight">Flarepath</h1>
@@ -8,6 +13,11 @@ export default function Home() {
       <p className="max-w-md text-center text-lg text-[#888]">
         Light the path from call to scene.
       </p>
+      {user && (
+        <p className="text-sm text-[#555]">
+          Signed in as <span className="text-[#ccc]">{user.email}</span>
+        </p>
+      )}
       <div className="mt-4 flex gap-3">
         <span className="rounded-full bg-[#ff2d2d]/20 px-3 py-1 text-sm text-[#ff2d2d]">
           Critical

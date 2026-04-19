@@ -1,5 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import ThemeProvider from "@/components/ThemeProvider";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import InstallPrompt from "@/components/InstallPrompt";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -22,6 +25,9 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
     apple: "/icons/icon-192.png",
   },
+};
+
+export const viewport: Viewport = {
   themeColor: "#ff2d2d",
 };
 
@@ -31,11 +37,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0a0a0b] text-[#ededed]`}
       >
-        {children}
+        <ThemeProvider>
+          {children}
+          <ServiceWorkerRegister />
+          <InstallPrompt />
+        </ThemeProvider>
       </body>
     </html>
   );
