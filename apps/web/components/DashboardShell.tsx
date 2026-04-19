@@ -1,18 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import IncidentFeed from "./IncidentFeed";
 import IncidentDetail from "./IncidentDetail";
 import LiveMap from "./LiveMap";
 import NewIncidentModal from "./NewIncidentModal";
+import KeyboardShortcuts from "./KeyboardShortcuts";
+import CommandPalette from "./CommandPalette";
 
 export default function DashboardShell() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const router = useRouter();
+
+  const openNew = useCallback(() => setShowNewForm(true), []);
+  const closeDrawer = useCallback(() => setSelectedId(null), []);
+  const togglePalette = useCallback(() => setShowCommandPalette((p) => !p), []);
 
   return (
     <div className="flex h-full">
+      {/* Keyboard shortcuts */}
+      <KeyboardShortcuts
+        onNewIncident={openNew}
+        onCloseDrawer={closeDrawer}
+        onCommandPalette={togglePalette}
+      />
+
       {/* Left: Incident Feed */}
       <div className="w-80 shrink-0 overflow-auto border-r border-[#1a1a1e]">
         <div className="flex items-center justify-between border-b border-[#1a1a1e] px-4 py-3">
@@ -20,8 +36,9 @@ export default function DashboardShell() {
             Incidents
           </h2>
           <button
-            onClick={() => setShowNewForm(true)}
+            onClick={openNew}
             className="flex items-center gap-1 rounded-md bg-[#ff2d2d] px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#e02525]"
+            title="New incident (N)"
           >
             <Plus size={14} />
             New
@@ -40,7 +57,7 @@ export default function DashboardShell() {
         <div className="w-96 shrink-0 border-l border-[#1a1a1e] overflow-auto">
           <IncidentDetail
             incidentId={selectedId}
-            onClose={() => setSelectedId(null)}
+            onClose={closeDrawer}
           />
         </div>
       )}
@@ -53,6 +70,14 @@ export default function DashboardShell() {
           setShowNewForm(false);
           setSelectedId(id);
         }}
+      />
+
+      {/* Command Palette */}
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        onNewIncident={() => { setShowCommandPalette(false); openNew(); }}
+        onNavigate={(path) => router.push(path)}
       />
     </div>
   );

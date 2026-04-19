@@ -4,6 +4,7 @@ import ThemeProvider from "@/components/ThemeProvider";
 import QueryProvider from "@/components/QueryProvider";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import InstallPrompt from "@/components/InstallPrompt";
+import ToastContainer from "@/components/Toast";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -48,6 +49,7 @@ export default function RootLayout({
           </QueryProvider>
           <ServiceWorkerRegister />
           <InstallPrompt />
+          <ToastContainer />
         </ThemeProvider>
       </body>
     </html>

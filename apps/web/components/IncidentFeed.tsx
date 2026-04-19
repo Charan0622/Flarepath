@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import IncidentCard from "./IncidentCardWrapper";
+import { FeedSkeleton } from "./LoadingSkeleton";
 
 interface Incident {
   id: string;
@@ -27,10 +28,12 @@ export default function IncidentFeed({
   onSelect: (id: string) => void;
   selectedId: string | null;
 }) {
-  const { data: incidents = [], refetch } = useQuery({
+  const { data: incidents = [], refetch, isLoading } = useQuery({
     queryKey: ["incidents"],
     queryFn: fetchIncidents,
   });
+
+  if (isLoading) return <FeedSkeleton />;
 
   // Subscribe to realtime changes
   useEffect(() => {

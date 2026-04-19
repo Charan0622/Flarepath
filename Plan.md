@@ -9,8 +9,8 @@
 | Phase | Duration | Goal | Status |
 |---|---|---|---|
 | **0** | 1-2 days | Pre-build: accounts, design, decisions | `[DONE]` |
-| **1** | 4 weeks | MVP — end-to-end demo-ready | `[ACTIVE]` |
-| **2** | 3 weeks | Depth — voice, analytics, offline A* | `[ ]` |
+| **1** | 4 weeks | MVP — end-to-end demo-ready | `[DONE]` |
+| **2** | 3 weeks | Depth — voice, analytics, offline A* | `[ACTIVE]` |
 | **3** | optional | Wow features — CV, citizen PWA, native shell | `[ ]` |
 
 ---
@@ -47,7 +47,7 @@
 
 ## Phase 1 — MVP (4 Weeks)
 
-### Week 1 — Foundation `[ ]`
+### Week 1 — Foundation `[DONE]`
 
 **Goal:** a running monorepo, auth, database, and design-system skeleton. No business logic yet.
 
@@ -108,7 +108,7 @@
 
 ---
 
-### Week 2 — Incidents & AI Triage `[ ]`
+### Week 2 — Incidents & AI Triage `[DONE]`
 
 **Goal:** the dispatcher can create an incident, AI triages it, and it shows up on the live map.
 
@@ -162,7 +162,7 @@
 
 ---
 
-### Week 3 — Dispatch & Routing `[ ]`
+### Week 3 — Dispatch & Routing `[DONE]`
 
 **Goal:** dispatcher can assign a crew+vehicle, see the red route preview, and confirm dispatch.
 
@@ -211,7 +211,7 @@
 
 ---
 
-### Week 4 — Mobile Responder & Navigation `[ ]`
+### Week 4 — Mobile Responder & Navigation `[DONE]`
 
 **Goal:** the whole loop closes. Responder gets notified, navigates, updates status, dispatcher sees it live.
 
@@ -324,6 +324,30 @@ Add a row every time you make a call you might second-guess later.
 
 *Append a one-line entry each time a task is completed. Newest at the top.*
 
+- 2026-04-19 — [4.6] — README.md with feature overview, tech stack, demo script, setup guide
+- 2026-04-19 — [4.5] — Polish: loading skeletons, toast notifications, Cmd+K palette, keyboard shortcuts (N/Esc)
+- 2026-04-19 — [4.4] — Off-route detection with haversine distance + re-route trigger
+- 2026-04-19 — [4.3] — GPS ping API with batched insert, live vehicle location updates
+- 2026-04-19 — [4.2] — In-browser turn-by-turn: 3D camera, voice guidance, wake lock, GPS streaming
+- 2026-04-19 — [4.1] — Mobile responder view: 70/30 map+sheet, big status buttons, haptic feedback
+- 2026-04-19 — [3.6] — Dispatch → push flow: severity emoji notifications to responders
+- 2026-04-19 — [3.5] — Web Push: subscribe/send endpoints, VAPID authentication
+- 2026-04-19 — [3.4] — Red path rendering: glow + line layers, auto-fit bounds
+- 2026-04-19 — [3.3] — Mapbox routing: Directions API, 5-min cache, step-by-step instructions
+- 2026-04-19 — [3.2] — Dispatch UI: recommendation modal, confirm flow, optimistic updates
+- 2026-04-19 — [3.1] — Resource scoring: distance + type match + availability + station load
+- 2026-04-19 — [2.6] — New incident form: Mapbox Geocoding autocomplete, hazard tags, auto-triage
+- 2026-04-19 — [2.5] — Live map: Mapbox dark-v11, severity markers, station markers, realtime refresh
+- 2026-04-19 — [2.4] — Incident feed: TanStack Query + Supabase Realtime, detail pane with triage
+- 2026-04-19 — [2.3] — Gemini triage: structured output, retry-once, rule-based fallback
+- 2026-04-19 — [2.2] — Incident CRUD API: POST/GET/PATCH with Zod + state machine (409 on illegal)
+- 2026-04-19 — [2.1] — Full schema: 7 tables, PostGIS, GIST indexes, RLS, seed data
+- 2026-04-19 — [1.7] — PWA: Service Worker (cache+push), install prompt component
+- 2026-04-19 — [1.6] — Design system: SeverityBadge, StatusPill, IncidentCard with CVA
+- 2026-04-19 — [1.5] — Responsive shell: desktop sidebar + mobile bottom tabs, next-themes dark mode
+- 2026-04-19 — [1.4] — Auth: login/signup/logout, middleware session, magic link, auth callback
+- 2026-04-19 — [1.3] — Supabase: organizations + profiles, RLS policies, SJFD org seeded
+- 2026-04-19 — [1.2] — CI pipeline: GitHub Actions (typecheck → lint → build)
 - 2026-04-17 — [0.4] — Visual identity locked: fire logomark SVG, favicon, PWA icons (192/512), manifest.json
 - 2026-04-17 — [0.3] — VAPID keys generated for Web Push
 - 2026-04-17 — [0.2] — Demo city: San Jose, CA with 3 SJFD stations, 6 vehicles, 10 incident scenarios
