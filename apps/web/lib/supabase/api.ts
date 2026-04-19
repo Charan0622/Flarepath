@@ -1,13 +1,12 @@
 import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-/**
- * Auth-aware client (anon key) — use for auth.getUser() only.
- * Do NOT use for DB queries — RLS policies may cause recursion.
- */
+// Singleton service client — reused across all requests (no cookies needed)
+let _serviceClient: SupabaseClient | null = null;
+
 export function getAuthClient() {
   const cookieStore = cookies();
   return createServerClient(
@@ -24,20 +23,16 @@ export function getAuthClient() {
   );
 }
 
-/**
- * Service role client — bypasses RLS. Use for all DB operations in API routes.
- */
 export function getServiceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  if (!_serviceClient) {
+    _serviceClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _serviceClient;
 }
 
-/**
- * Helper: get authenticated user + profile in one call.
- * Returns null if not authenticated.
- */
 export async function getAuthenticatedUser() {
   const supabase = getAuthClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -46,7 +41,7 @@ export async function getAuthenticatedUser() {
   const db = getServiceClient();
   const { data: profile } = await db
     .from("profiles")
-    .select("*")
+    .select("id, organization_id, role, full_name")
     .eq("id", user.id)
     .single();
 

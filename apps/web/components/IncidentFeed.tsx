@@ -1,8 +1,5 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 import IncidentCard from "./IncidentCardWrapper";
 import { FeedSkeleton } from "./LoadingSkeleton";
 
@@ -15,42 +12,19 @@ interface Incident {
   created_at: string;
 }
 
-async function fetchIncidents(): Promise<Incident[]> {
-  const res = await fetch("/api/incidents?limit=50");
-  const json = await res.json();
-  return json.data?.incidents ?? [];
-}
-
 export default function IncidentFeed({
   onSelect,
   selectedId,
+  incidents,
+  isLoading,
 }: {
   onSelect: (id: string) => void;
   selectedId: string | null;
+  incidents: Incident[];
+  isLoading: boolean;
 }) {
-  const { data: incidents = [], refetch, isLoading } = useQuery({
-    queryKey: ["incidents"],
-    queryFn: fetchIncidents,
-  });
-
-  // Subscribe to realtime changes — must be before any early return
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel("incidents-feed")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "incidents" },
-        () => { refetch(); }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [refetch]);
-
   if (isLoading) return <FeedSkeleton />;
 
-  // Sort: critical first, then by time descending
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
   const sorted = [...incidents].sort((a, b) => {
     const sevDiff = severityOrder[a.severity] - severityOrder[b.severity];
@@ -60,11 +34,6 @@ export default function IncidentFeed({
 
   return (
     <div className="flex flex-col gap-2 p-3">
-      <div className="flex items-center justify-between px-1">
-        <h2 className="text-sm font-semibold text-[#888] uppercase tracking-wider">
-          Incidents ({incidents.length})
-        </h2>
-      </div>
       {sorted.length === 0 ? (
         <p className="px-1 py-8 text-center text-sm text-[#555]">
           No active incidents

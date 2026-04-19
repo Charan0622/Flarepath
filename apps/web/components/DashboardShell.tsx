@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import IncidentFeed from "./IncidentFeed";
 import IncidentDetail from "./IncidentDetail";
@@ -11,11 +12,23 @@ import KeyboardShortcuts from "./KeyboardShortcuts";
 import WeatherWidget from "./WeatherWidget";
 import CommandPalette from "./CommandPalette";
 
+async function fetchIncidents() {
+  const res = await fetch("/api/incidents?limit=50");
+  const json = await res.json();
+  return json.data?.incidents ?? [];
+}
+
 export default function DashboardShell() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const router = useRouter();
+
+  // Single data fetch shared by feed + map
+  const { data: incidents = [], isLoading } = useQuery({
+    queryKey: ["incidents"],
+    queryFn: fetchIncidents,
+  });
 
   const openNew = useCallback(() => setShowNewForm(true), []);
   const closeDrawer = useCallback(() => setSelectedId(null), []);
@@ -23,7 +36,6 @@ export default function DashboardShell() {
 
   return (
     <div className="flex h-full">
-      {/* Keyboard shortcuts */}
       <KeyboardShortcuts
         onNewIncident={openNew}
         onCloseDrawer={closeDrawer}
@@ -45,12 +57,17 @@ export default function DashboardShell() {
             New
           </button>
         </div>
-        <IncidentFeed onSelect={setSelectedId} selectedId={selectedId} />
+        <IncidentFeed
+          onSelect={setSelectedId}
+          selectedId={selectedId}
+          incidents={incidents}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Center: Live Map */}
       <div className="relative flex-1">
-        <LiveMap onIncidentClick={setSelectedId} />
+        <LiveMap onIncidentClick={setSelectedId} incidents={incidents} />
         <WeatherWidget />
       </div>
 
@@ -64,7 +81,6 @@ export default function DashboardShell() {
         </div>
       )}
 
-      {/* New Incident Modal */}
       <NewIncidentModal
         isOpen={showNewForm}
         onClose={() => setShowNewForm(false)}
@@ -74,7 +90,6 @@ export default function DashboardShell() {
         }}
       />
 
-      {/* Command Palette */}
       <CommandPalette
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
