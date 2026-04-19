@@ -49,59 +49,43 @@ interface LiveMapProps {
 
 function makeIncidentMarker(severity: string, isSelected: boolean): HTMLDivElement {
   const color = SEVERITY_COLORS[severity] ?? "#888";
-  const size = isSelected ? 20 : 14;
-  const ring = isSelected ? 30 : 22;
   const el = document.createElement("div");
-  el.style.cssText = `width:${ring}px;height:${ring}px;cursor:pointer;display:flex;align-items:center;justify-content:center;`;
+  const s = isSelected ? 34 : 26;
+  el.style.cssText = `width:${s}px;height:${s}px;cursor:pointer;position:relative;`;
   el.innerHTML = `
-    <svg width="${ring}" height="${ring}" viewBox="0 0 ${ring} ${ring}">
-      <circle cx="${ring/2}" cy="${ring/2}" r="${ring/2-1}" fill="${color}20" stroke="${isSelected ? '#fff' : color}" stroke-width="${isSelected ? 2 : 1.5}" />
-      <circle cx="${ring/2}" cy="${ring/2}" r="${size/2}" fill="${color}" />
-    </svg>`;
+    <div style="width:100%;height:100%;border-radius:50%;background:${color};border:${isSelected ? '3px solid #fff' : `2px solid ${color}`};box-shadow:0 0 ${isSelected ? 20 : 10}px ${color}80;display:flex;align-items:center;justify-content:center;">
+      <span style="font-size:${isSelected ? 14 : 11}px;line-height:1;">🔥</span>
+    </div>`;
   return el;
 }
 
 function makeStationMarker(name: string): HTMLDivElement {
   const el = document.createElement("div");
-  el.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:3px;cursor:default;";
+  el.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:2px;cursor:default;";
   el.innerHTML = `
-    <svg width="24" height="24" viewBox="0 0 24 24">
-      <rect x="2" y="2" width="20" height="20" rx="4" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
-      <rect x="7" y="10" width="4" height="6" rx="0.5" fill="#3b82f6" opacity="0.6"/>
-      <rect x="13" y="10" width="4" height="6" rx="0.5" fill="#3b82f6" opacity="0.6"/>
-      <rect x="9" y="4" width="6" height="4" rx="1" fill="#3b82f6" opacity="0.4"/>
-    </svg>
-    <span style="font-size:9px;color:#60a5fa;font-weight:500;opacity:0.8;">${name}</span>`;
+    <div style="width:32px;height:32px;border-radius:8px;background:#1e3a5f;border:2px solid #3b82f6;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(59,130,246,0.3);">
+      <span style="font-size:16px;line-height:1;">🏢</span>
+    </div>
+    <span style="font-size:8px;color:#60a5fa;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.9);">${name}</span>`;
   return el;
 }
 
-function makeVehicleMarker(callSign: string, status: string, progress: number): HTMLDivElement {
+function makeVehicleMarker(callSign: string, status: string, _progress: number): HTMLDivElement {
   const colors: Record<string, string> = {
-    assigned: "#888", acknowledged: "#ff7b1c", en_route: "#ffc93c", on_scene: "#3ddc84",
+    assigned: "#6b7280", acknowledged: "#f97316", en_route: "#eab308", on_scene: "#22c55e",
   };
-  const color = colors[status] ?? "#888";
+  const color = colors[status] ?? "#6b7280";
+  const isMoving = status === "en_route";
   const el = document.createElement("div");
   el.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:1px;pointer-events:none;";
-
-  // Progress ring for en_route
-  const circumference = 2 * Math.PI * 15;
-  const dashoffset = circumference * (1 - progress);
-
   el.innerHTML = `
-    <div style="position:relative;width:36px;height:36px;">
-      <svg width="36" height="36" viewBox="0 0 36 36" style="position:absolute;top:0;left:0;transform:rotate(-90deg);">
-        <circle cx="18" cy="18" r="15" fill="none" stroke="#222" stroke-width="2.5"/>
-        ${status === "en_route" ? `<circle cx="18" cy="18" r="15" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="${circumference}" stroke-dashoffset="${dashoffset}" stroke-linecap="round" style="transition:stroke-dashoffset 2s ease;"/>` : ""}
-      </svg>
-      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="${status === "on_scene" ? color : "#ccc"}">
-          <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.22.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.08 3.11H5.77L6.85 7zM19 17H5v-5h14v5z"/>
-          <circle cx="7.5" cy="14.5" r="1.5"/>
-          <circle cx="16.5" cy="14.5" r="1.5"/>
-        </svg>
+    <div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+      ${isMoving ? `<div style="position:absolute;inset:-3px;border-radius:50%;border:2px solid ${color}60;animation:fp-ring 2.5s ease-out infinite;"></div>` : ""}
+      <div style="width:36px;height:36px;border-radius:50%;background:#18181b;border:2.5px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px ${color}40;">
+        <span style="font-size:18px;line-height:1;">🚒</span>
       </div>
     </div>
-    <span style="font-size:8px;font-weight:600;color:${color};letter-spacing:0.3px;white-space:nowrap;">${callSign}</span>`;
+    <span style="background:${color};color:#000;font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px;white-space:nowrap;margin-top:-2px;">${callSign}</span>`;
   return el;
 }
 
@@ -282,13 +266,7 @@ export default function LiveMap({ onIncidentClick, incidents, activeDispatches, 
         const pos = interpolateRoute(entry.coords, progress);
         entry.marker.setLngLat(pos);
 
-        // Update the progress ring
-        const el = entry.marker.getElement();
-        const progressCircle = el.querySelector("circle:nth-child(2)") as SVGCircleElement | null;
-        if (progressCircle) {
-          const circumference = 2 * Math.PI * 15;
-          progressCircle.setAttribute("stroke-dashoffset", String(circumference * (1 - progress)));
-        }
+        // Position updates are enough — no progress ring to update
       });
 
       animRef.current = requestAnimationFrame(tick);

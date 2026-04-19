@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import IncidentFeed from "./IncidentFeed";
 import IncidentDetail from "./IncidentDetail";
 import LiveMap from "./LiveMap";
@@ -15,14 +15,12 @@ import CommandPalette from "./CommandPalette";
 
 async function fetchIncidents() {
   const res = await fetch("/api/incidents?limit=50");
-  const json = await res.json();
-  return json.data?.incidents ?? [];
+  return (await res.json()).data?.incidents ?? [];
 }
 
 async function fetchActiveDispatches() {
   const res = await fetch("/api/dispatch/active");
-  const json = await res.json();
-  return json.data?.dispatches ?? [];
+  return (await res.json()).data?.dispatches ?? [];
 }
 
 export default function DashboardShell() {
@@ -32,51 +30,62 @@ export default function DashboardShell() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data: incidents = [], isLoading } = useQuery({
-    queryKey: ["incidents"],
-    queryFn: fetchIncidents,
-  });
-
-  const { data: activeDispatches = [] } = useQuery({
-    queryKey: ["active-dispatches"],
-    queryFn: fetchActiveDispatches,
-    refetchInterval: 10000, // Refresh every 10s for live feel
-  });
+  const { data: incidents = [], isLoading } = useQuery({ queryKey: ["incidents"], queryFn: fetchIncidents });
+  const { data: activeDispatches = [] } = useQuery({ queryKey: ["active-dispatches"], queryFn: fetchActiveDispatches, refetchInterval: 10000 });
 
   const openNew = useCallback(() => setShowNewForm(true), []);
   const closeDrawer = useCallback(() => setSelectedId(null), []);
   const togglePalette = useCallback(() => setShowCommandPalette((p) => !p), []);
 
-  // Live counts
   const activeIncidents = incidents.filter((i: { status: string }) => !["resolved", "cancelled"].includes(i.status));
   const criticalCount = activeIncidents.filter((i: { severity: string }) => i.severity === "critical").length;
-  const enRouteCount = activeDispatches.filter((d: { status: string }) => d.status === "en_route").length;
-  const onSceneCount = activeDispatches.filter((d: { status: string }) => d.status === "on_scene").length;
 
   return (
-    <div className="flex h-full bg-[#050507]">
+    <div className="flex h-full" style={{ background: "#0c0c10" }}>
       <KeyboardShortcuts onNewIncident={openNew} onCloseDrawer={closeDrawer} onCommandPalette={togglePalette} />
 
-      {/* Left Panel */}
-      <div className="w-[320px] shrink-0 flex flex-col border-r border-white/[0.06] bg-[#09090b]">
+      {/* Sidebar */}
+      <div className="w-[360px] shrink-0 flex flex-col" style={{ background: "#101014", borderRight: "1px solid #1e1e24" }}>
         {/* Header */}
-        <div className="border-b border-white/[0.06] px-4 py-3.5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-sm font-semibold text-white/90 tracking-tight">Flarepath</h1>
-              <div className="mt-1 flex items-center gap-2.5 text-[10px] text-white/30">
-                {criticalCount > 0 && <span className="text-[#ff2d2d]">{criticalCount} critical</span>}
-                <span>{activeIncidents.length} active</span>
-                <span>{enRouteCount} en route</span>
+        <div className="px-4 py-3" style={{ borderBottom: "1px solid #1e1e24" }}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2c-4 4-8 8-8 13a8 8 0 0016 0c0-5-4-9-8-13zm0 18a5 5 0 01-5-5c0-3 2.5-6.4 5-9.2 2.5 2.8 5 6.2 5 9.2a5 5 0 01-5 5z"/></svg>
               </div>
+              <span className="text-sm font-semibold" style={{ color: "#eeeef0" }}>Flarepath</span>
             </div>
             <button
               onClick={openNew}
-              className="flex items-center gap-1 rounded-md bg-white/[0.08] px-2.5 py-1.5 text-[11px] font-medium text-white/70 transition-colors hover:bg-white/[0.12] hover:text-white"
+              className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors"
+              style={{ background: "#ef4444", color: "white" }}
             >
               <Plus size={12} />
-              New
+              New Incident
             </button>
+          </div>
+
+          {/* Search */}
+          <button
+            onClick={togglePalette}
+            className="w-full flex items-center gap-2 rounded-md px-3 py-1.5 text-[11px] transition-colors"
+            style={{ background: "#1a1a20", color: "#58585e", border: "1px solid #2a2a32" }}
+          >
+            <Search size={12} />
+            <span>Search incidents...</span>
+            <kbd className="ml-auto rounded px-1 py-0.5 text-[9px]" style={{ background: "#222228", color: "#58585e" }}>⌘K</kbd>
+          </button>
+
+          {/* Stats */}
+          <div className="mt-2.5 flex items-center gap-4 text-[10px]" style={{ color: "#58585e" }}>
+            {criticalCount > 0 && (
+              <span className="flex items-center gap-1" style={{ color: "#ef4444" }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] animate-pulse" />
+                {criticalCount} critical
+              </span>
+            )}
+            <span>{activeIncidents.length} active</span>
+            <span>{activeDispatches.length} units deployed</span>
           </div>
         </div>
 
@@ -84,15 +93,9 @@ export default function DashboardShell() {
         <div className="flex-1 overflow-auto">
           <IncidentFeed onSelect={setSelectedId} selectedId={selectedId} incidents={incidents} isLoading={isLoading} />
         </div>
-
-        {/* Footer — unit count */}
-        <div className="border-t border-white/[0.06] px-4 py-2 flex items-center justify-between text-[10px] text-white/20">
-          <span>SJFD</span>
-          <span>{activeDispatches.length} units deployed</span>
-        </div>
       </div>
 
-      {/* Center — Map with ALL routes + vehicles */}
+      {/* Map */}
       <div className="relative flex-1">
         <LiveMap
           onIncidentClick={setSelectedId}
@@ -103,17 +106,18 @@ export default function DashboardShell() {
         <WeatherWidget />
       </div>
 
-      {/* Right Panel */}
+      {/* Detail Panel */}
       <AnimatePresence>
         {selectedId && (
           <motion.div
             initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 384, opacity: 1 }}
+            animate={{ width: 400, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="shrink-0 border-l border-white/5 overflow-hidden bg-[#0a0a0b]/90 backdrop-blur-xl"
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            className="shrink-0 overflow-hidden"
+            style={{ background: "#101014", borderLeft: "1px solid #1e1e24" }}
           >
-            <div className="w-96 h-full overflow-auto">
+            <div className="w-[400px] h-full overflow-auto">
               <IncidentDetail incidentId={selectedId} onClose={closeDrawer} />
             </div>
           </motion.div>
