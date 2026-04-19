@@ -10,14 +10,14 @@ const SEVERITY_COLORS: Record<string, string> = {
   critical: "#ff2d2d", high: "#ff7b1c", medium: "#ffc93c", low: "#3ddc84",
 };
 
-const DISPATCH_STATUS_COLORS: Record<string, string> = {
-  assigned: "#ff2d2d", acknowledged: "#ff7b1c", en_route: "#ffc93c", on_scene: "#3ddc84",
+const STATUS_COLORS: Record<string, string> = {
+  assigned: "#ff7b1c", acknowledged: "#ff7b1c", en_route: "#ffc93c", on_scene: "#3ddc84",
 };
 
 const STATIONS = [
-  { name: "SJFD Station 1", coords: [-121.8900, 37.3394] as [number, number] },
-  { name: "SJFD Station 7", coords: [-121.9148, 37.3295] as [number, number] },
-  { name: "SJFD Station 30", coords: [-121.8350, 37.3660] as [number, number] },
+  { name: "Station 1", coords: [-121.8900, 37.3394] as [number, number] },
+  { name: "Station 7", coords: [-121.9148, 37.3295] as [number, number] },
+  { name: "Station 30", coords: [-121.8350, 37.3660] as [number, number] },
 ];
 
 const INCIDENT_COORDS: Record<string, [number, number]> = {
@@ -33,21 +33,10 @@ const INCIDENT_COORDS: Record<string, [number, number]> = {
   "3250 Zanker Rd, San Jose, CA 95134": [-121.9230, 37.4072],
 };
 
-const STATION_COORDS: Record<string, [number, number]> = {
-  "fcf13ccd-c48b-454e-9880-1bac61c187b6": [-121.8900, 37.3394],
-  "55a9c33d-6e0b-43c4-a026-89e6833570c2": [-121.9148, 37.3295],
-  "13402c9f-d7bb-42fe-91df-fb3b4e737eb1": [-121.8350, 37.3660],
-};
-
 interface Incident { id: string; type: string; severity: string; address: string; status: string; }
 interface ActiveDispatch {
-  id: string;
-  incident_id: string;
-  vehicle_id: string;
-  status: string;
-  route_geojson: GeoJSON.LineString | null;
-  distance_m: number | null;
-  eta_seconds: number | null;
+  id: string; incident_id: string; vehicle_id: string; status: string;
+  route_geojson: GeoJSON.LineString | null; distance_m: number | null; eta_seconds: number | null;
   vehicle: { call_sign: string; type: string; station_id: string } | null;
   incident: { type: string; severity: string; address: string } | null;
 }
@@ -59,59 +48,25 @@ interface LiveMapProps {
   selectedIncidentId?: string | null;
 }
 
-function createFireMarkerEl(severity: string): HTMLDivElement {
-  const color = SEVERITY_COLORS[severity] ?? "#888";
-  const isCritical = severity === "critical";
-  const el = document.createElement("div");
-  el.innerHTML = `
-    <div style="position:relative;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
-      ${isCritical ? `<div style="position:absolute;inset:-4px;border-radius:50%;background:${color}30;animation:pulse-ring 1.5s ease-out infinite;"></div>` : ""}
-      <div style="width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 30% 30%,${color},${color}99);border:2px solid ${color};display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 16px ${color}60,0 0 32px ${color}30;transition:transform 0.2s;">🔥</div>
-    </div>`;
-  el.onmouseenter = () => { const d = el.querySelector("div > div:last-child") as HTMLElement; if (d) d.style.transform = "scale(1.2)"; };
-  el.onmouseleave = () => { const d = el.querySelector("div > div:last-child") as HTMLElement; if (d) d.style.transform = "scale(1)"; };
-  return el;
-}
-
-function createStationMarkerEl(name: string): HTMLDivElement {
-  const el = document.createElement("div");
-  el.innerHTML = `
-    <div style="position:relative;width:40px;height:48px;cursor:pointer;" title="${name}">
-      <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#1e40af,#3b82f6);border:2px solid #60a5fa;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(59,130,246,0.4);">🏢</div>
-      <div style="position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;color:#60a5fa;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.8);">${name.replace("SJFD ", "")}</div>
-    </div>`;
-  return el;
-}
-
-function createVehicleMarkerEl(callSign: string, status: string): HTMLDivElement {
-  const color = DISPATCH_STATUS_COLORS[status] ?? "#888";
-  const isMoving = status === "en_route";
-  const el = document.createElement("div");
-  el.innerHTML = `
-    <div style="position:relative;width:56px;height:56px;display:flex;align-items:center;justify-content:center;">
-      ${isMoving ? `<div style="position:absolute;inset:0;border-radius:50%;border:2px solid ${color};animation:pulse-ring 2s ease-out infinite;"></div>` : ""}
-      <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#1a1a1e,#121214);border:2.5px solid ${color};display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 20px ${color}40,0 4px 12px rgba(0,0,0,0.5);">🚒</div>
-      <div style="position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);white-space:nowrap;background:${color};color:#000;font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;letter-spacing:0.5px;">${callSign}</div>
-      <div style="position:absolute;top:-8px;right:-4px;background:${color};color:#000;font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px;text-transform:uppercase;">${status.replace(/_/g, " ")}</div>
-    </div>`;
-  return el;
-}
-
 export default function LiveMap({ onIncidentClick, incidents, activeDispatches, selectedIncidentId }: LiveMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const incidentMarkersRef = useRef<mapboxgl.Marker[]>([]);
-  const vehicleMarkersRef = useRef<mapboxgl.Marker[]>([]);
-  const routeLayerIdsRef = useRef<string[]>([]);
+  const vehicleMarkersRef = useRef<Map<string, { marker: mapboxgl.Marker; progress: number; coords: number[][] }>>(new Map());
+  const routeLayersRef = useRef<string[]>([]);
+  const animRef = useRef<number>(0);
   const [loaded, setLoaded] = useState(false);
 
-  // Inject pulse CSS
+  // Pulse CSS
   useEffect(() => {
-    if (document.getElementById("map-pulse-css")) return;
-    const style = document.createElement("style");
-    style.id = "map-pulse-css";
-    style.textContent = `@keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 1; } 100% { transform: scale(2.2); opacity: 0; } }`;
-    document.head.appendChild(style);
+    if (document.getElementById("fp-css")) return;
+    const s = document.createElement("style");
+    s.id = "fp-css";
+    s.textContent = `
+      @keyframes fp-pulse { 0%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:0.5} 100%{transform:scale(1);opacity:1} }
+      @keyframes fp-ring { 0%{transform:scale(0.8);opacity:1} 100%{transform:scale(2.5);opacity:0} }
+    `;
+    document.head.appendChild(s);
   }, []);
 
   // Init map
@@ -122,21 +77,24 @@ export default function LiveMap({ onIncidentClick, incidents, activeDispatches, 
       style: "mapbox://styles/mapbox/dark-v11",
       center: [-121.8863, 37.3382],
       zoom: 12,
-      pitch: 20,
-      antialias: true,
+      pitch: 15,
     });
     map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "top-right");
     map.on("load", () => setLoaded(true));
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
+    return () => { cancelAnimationFrame(animRef.current); map.remove(); mapRef.current = null; };
   }, []);
 
   // Station markers (once)
   useEffect(() => {
     if (!loaded || !mapRef.current) return;
     STATIONS.forEach((s) => {
-      new mapboxgl.Marker({ element: createStationMarkerEl(s.name), anchor: "center" })
-        .setLngLat(s.coords).addTo(mapRef.current!);
+      const el = document.createElement("div");
+      el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:default;">
+        <div style="width:30px;height:30px;border-radius:6px;background:#1e40af;border:2px solid #3b82f6;display:flex;align-items:center;justify-content:center;font-size:15px;">🏢</div>
+        <span style="font-size:8px;color:#60a5fa;font-weight:600;text-shadow:0 1px 4px #000;">${s.name}</span>
+      </div>`;
+      new mapboxgl.Marker({ element: el, anchor: "bottom" }).setLngLat(s.coords).addTo(mapRef.current!);
     });
   }, [loaded]);
 
@@ -149,116 +107,161 @@ export default function LiveMap({ onIncidentClick, incidents, activeDispatches, 
 
     incidents
       .filter((i) => !["resolved", "cancelled"].includes(i.status))
-      .forEach((incident) => {
-        const coords = INCIDENT_COORDS[incident.address];
+      .forEach((inc) => {
+        const coords = INCIDENT_COORDS[inc.address];
         if (!coords) return;
-        const el = createFireMarkerEl(incident.severity);
-        el.addEventListener("click", () => onIncidentClick?.(incident.id));
+        const color = SEVERITY_COLORS[inc.severity] ?? "#888";
+        const isCrit = inc.severity === "critical";
+        const isSelected = inc.id === selectedIncidentId;
+        const size = isSelected ? 38 : 30;
+
+        const el = document.createElement("div");
+        el.innerHTML = `<div style="position:relative;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+          ${isCrit ? `<div style="position:absolute;inset:-6px;border-radius:50%;background:${color}25;animation:fp-ring 1.5s ease-out infinite;"></div>` : ""}
+          <div style="width:${size - 4}px;height:${size - 4}px;border-radius:50%;background:${color}${isSelected ? "" : "cc"};border:2px solid ${isSelected ? "#fff" : color};display:flex;align-items:center;justify-content:center;font-size:${isSelected ? 16 : 13}px;box-shadow:0 0 ${isSelected ? 24 : 12}px ${color}60;transition:all 0.2s;">🔥</div>
+        </div>`;
+        el.addEventListener("click", () => onIncidentClick?.(inc.id));
         const marker = new mapboxgl.Marker({ element: el, anchor: "center" }).setLngLat(coords).addTo(map);
         incidentMarkersRef.current.push(marker);
       });
-  }, [loaded, incidents, onIncidentClick]);
+  }, [loaded, incidents, onIncidentClick, selectedIncidentId]);
 
-  // ALL active routes + vehicle markers simultaneously
+  // Routes — ONLY for selected incident
   useEffect(() => {
     if (!loaded || !mapRef.current) return;
     const map = mapRef.current;
 
     // Clear old routes
-    routeLayerIdsRef.current.forEach((id) => {
-      if (map.getLayer(id)) map.removeLayer(id);
+    routeLayersRef.current.forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
+    routeLayersRef.current.forEach((id) => {
+      const src = id.replace(/-line$|-glow$/, "");
+      try { if (map.getSource(src)) map.removeSource(src); } catch {}
     });
-    routeLayerIdsRef.current.forEach((id) => {
-      const srcId = id.replace(/-line$|-glow$|-casing$/, "");
-      if (map.getSource(srcId) && !routeLayerIdsRef.current.some((lid) => lid !== id && lid.startsWith(srcId) && map.getLayer(lid))) {
-        map.removeSource(srcId);
-      }
-    });
-    routeLayerIdsRef.current = [];
+    routeLayersRef.current = [];
 
-    // Clear old vehicle markers
-    vehicleMarkersRef.current.forEach((m) => m.remove());
-    vehicleMarkersRef.current = [];
+    if (!selectedIncidentId || !activeDispatches) return;
 
-    if (!activeDispatches || activeDispatches.length === 0) return;
+    const selected = activeDispatches.filter((d) => d.incident_id === selectedIncidentId && d.route_geojson);
+    if (selected.length === 0) return;
 
-    const addedSources = new Set<string>();
+    const addedSrcs = new Set<string>();
+    selected.forEach((d, i) => {
+      const srcId = `sel-route-${i}`;
+      if (addedSrcs.has(srcId)) return;
+      addedSrcs.add(srcId);
 
-    activeDispatches.forEach((dispatch, idx) => {
-      if (!dispatch.route_geojson) return;
+      map.addSource(srcId, {
+        type: "geojson",
+        data: { type: "Feature", properties: {}, geometry: d.route_geojson! },
+      });
 
-      const isSelected = dispatch.incident_id === selectedIncidentId;
-      const opacity = isSelected ? 1 : 0.5;
-      const width = isSelected ? 6 : 3;
-      const srcId = `route-${idx}`;
-
-      if (!addedSources.has(srcId)) {
-        map.addSource(srcId, {
-          type: "geojson",
-          data: { type: "Feature", properties: {}, geometry: dispatch.route_geojson },
-        });
-        addedSources.add(srcId);
-      }
-
-      // Glow
       const glowId = `${srcId}-glow`;
       map.addLayer({
-        id: glowId,
-        type: "line",
-        source: srcId,
-        paint: { "line-color": "#ff2d2d", "line-width": width * 2.5, "line-blur": 10, "line-opacity": opacity * 0.35 },
+        id: glowId, type: "line", source: srcId,
+        paint: { "line-color": "#ff2d2d", "line-width": 14, "line-blur": 12, "line-opacity": 0.4 },
         layout: { "line-cap": "round", "line-join": "round" },
       });
-      routeLayerIdsRef.current.push(glowId);
+      routeLayersRef.current.push(glowId);
 
-      // Line
       const lineId = `${srcId}-line`;
       map.addLayer({
-        id: lineId,
-        type: "line",
-        source: srcId,
-        paint: { "line-color": "#ff2d2d", "line-width": width, "line-opacity": opacity },
+        id: lineId, type: "line", source: srcId,
+        paint: { "line-color": "#ff2d2d", "line-width": 5, "line-opacity": 0.95 },
         layout: { "line-cap": "round", "line-join": "round" },
       });
-      routeLayerIdsRef.current.push(lineId);
+      routeLayersRef.current.push(lineId);
+    });
 
-      // Vehicle marker at the appropriate position along the route
-      if (dispatch.vehicle) {
-        const coords = dispatch.route_geojson.coordinates;
-        let vehiclePos: [number, number];
+    // Fit to selected routes
+    const bounds = new mapboxgl.LngLatBounds();
+    selected.forEach((d) => d.route_geojson!.coordinates.forEach((c: number[]) => bounds.extend([c[0], c[1]])));
+    map.fitBounds(bounds, { padding: 100, duration: 800 });
+  }, [loaded, selectedIncidentId, activeDispatches]);
 
-        if (dispatch.status === "on_scene") {
-          // At the destination
-          vehiclePos = coords[coords.length - 1] as [number, number];
-        } else if (dispatch.status === "en_route") {
-          // Simulate position ~40% along the route
-          const mid = Math.floor(coords.length * 0.4);
-          vehiclePos = coords[mid] as [number, number];
-        } else {
-          // At the station (origin)
-          vehiclePos = coords[0] as [number, number];
-        }
+  // Vehicle markers — always visible, animated movement
+  useEffect(() => {
+    if (!loaded || !mapRef.current || !activeDispatches) return;
+    const map = mapRef.current;
+    const existing = vehicleMarkersRef.current;
+    const currentIds = new Set<string>();
 
-        const vehicleEl = createVehicleMarkerEl(dispatch.vehicle.call_sign, dispatch.status);
-        const vehicleMarker = new mapboxgl.Marker({ element: vehicleEl, anchor: "center" })
-          .setLngLat(vehiclePos)
+    activeDispatches.forEach((d) => {
+      if (!d.vehicle || !d.route_geojson) return;
+      const id = d.id;
+      currentIds.add(id);
+      const coords = d.route_geojson.coordinates;
+      const color = STATUS_COLORS[d.status] ?? "#888";
+
+      if (!existing.has(id)) {
+        // Create new vehicle marker
+        const el = document.createElement("div");
+        el.className = `vehicle-${id}`;
+        updateVehicleEl(el, d.vehicle.call_sign, d.status, color);
+
+        const startPos = getVehiclePosition(d.status, coords);
+        const marker = new mapboxgl.Marker({ element: el, anchor: "center" })
+          .setLngLat(startPos)
           .addTo(map);
-        vehicleMarkersRef.current.push(vehicleMarker);
+
+        const progress = d.status === "on_scene" ? 1 : d.status === "en_route" ? 0.3 : 0;
+        existing.set(id, { marker, progress, coords });
+      } else {
+        // Update existing marker element
+        const entry = existing.get(id)!;
+        const el = entry.marker.getElement();
+        updateVehicleEl(el, d.vehicle.call_sign, d.status, color);
+        entry.coords = coords;
       }
     });
 
-    // If an incident is selected, fit to its route
-    if (selectedIncidentId) {
-      const selectedDispatches = activeDispatches.filter((d) => d.incident_id === selectedIncidentId && d.route_geojson);
-      if (selectedDispatches.length > 0) {
-        const bounds = new mapboxgl.LngLatBounds();
-        selectedDispatches.forEach((d) => {
-          d.route_geojson!.coordinates.forEach((c: number[]) => bounds.extend([c[0], c[1]]));
-        });
-        map.fitBounds(bounds, { padding: 100, duration: 800 });
+    // Remove vehicles no longer active
+    existing.forEach((entry, id) => {
+      if (!currentIds.has(id)) {
+        entry.marker.remove();
+        existing.delete(id);
       }
+    });
+
+    // Start animation loop for en_route vehicles
+    cancelAnimationFrame(animRef.current);
+    function animate() {
+      existing.forEach((entry, id) => {
+        const dispatch = activeDispatches!.find((d) => d.id === id);
+        if (!dispatch || dispatch.status !== "en_route") return;
+
+        entry.progress += 0.001; // Move ~0.1% per frame
+        if (entry.progress > 0.95) entry.progress = 0.05; // Loop back
+
+        const idx = Math.floor(entry.progress * (entry.coords.length - 1));
+        const c = entry.coords[Math.min(idx, entry.coords.length - 1)];
+        entry.marker.setLngLat([c[0], c[1]]);
+      });
+      animRef.current = requestAnimationFrame(animate);
     }
-  }, [loaded, activeDispatches, selectedIncidentId]);
+    animate();
+
+    return () => cancelAnimationFrame(animRef.current);
+  }, [loaded, activeDispatches]);
 
   return <div ref={mapContainer} className="h-full w-full" />;
+}
+
+function getVehiclePosition(status: string, coords: number[][]): [number, number] {
+  if (status === "on_scene") return coords[coords.length - 1] as [number, number];
+  if (status === "en_route") {
+    const idx = Math.floor(coords.length * 0.3);
+    return coords[idx] as [number, number];
+  }
+  return coords[0] as [number, number];
+}
+
+function updateVehicleEl(el: HTMLElement, callSign: string, status: string, color: string) {
+  const isMoving = status === "en_route";
+  el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:0;pointer-events:none;">
+    <div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+      ${isMoving ? `<div style="position:absolute;inset:-2px;border-radius:50%;border:2px solid ${color};animation:fp-ring 2s ease-out infinite;"></div>` : ""}
+      <div style="width:36px;height:36px;border-radius:50%;background:#111;border:2.5px solid ${color};display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 14px ${color}50;">🚒</div>
+    </div>
+    <span style="margin-top:-2px;background:${color};color:#000;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;white-space:nowrap;">${callSign}</span>
+  </div>`;
 }
