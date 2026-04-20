@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, LogOut } from "lucide-react";
 import IncidentFeed from "./IncidentFeed";
 import IncidentDetail from "./IncidentDetail";
 import LiveMap from "./LiveMap";
@@ -92,6 +92,22 @@ export default function DashboardShell() {
         {/* Feed */}
         <div className="flex-1 overflow-auto">
           <IncidentFeed onSelect={setSelectedId} selectedId={selectedId} incidents={incidents} isLoading={isLoading} />
+        </div>
+
+        {/* Logout */}
+        <div style={{ borderTop: "1px solid #1e1e24", padding: "8px 16px" }}>
+          <form action="/api/auth/logout" method="POST">
+            <button
+              type="submit"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-[11px] transition-colors"
+              style={{ color: "#58585e" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#1a1a20"; e.currentTarget.style.color = "#ef4444"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#58585e"; }}
+            >
+              <LogOut size={13} />
+              Sign out
+            </button>
+          </form>
         </div>
       </div>
 
