@@ -30,10 +30,12 @@ const DEMO_USERS: Record<string, { email: string; name: string; role: string; sk
   },
 };
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) throw new Error("Supabase is not configured");
+  return createClient(url, serviceKey);
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
@@ -43,6 +45,8 @@ export async function POST(request: NextRequest) {
   if (!demoUser) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }
+
+  const supabaseAdmin = getAdmin();
 
   // Check if user exists
   const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();

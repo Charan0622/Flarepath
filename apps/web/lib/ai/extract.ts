@@ -3,7 +3,11 @@ import "server-only";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+function getGenAI(): GoogleGenerativeAI {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY is not configured");
+  return new GoogleGenerativeAI(key);
+}
 
 export const IncidentExtractSchema = z.object({
   reporter_name: z.string().optional(),
@@ -31,7 +35,7 @@ Return ONLY valid JSON matching this schema:
 If information is not mentioned, omit that field. Always include description.`;
 
 export async function extractIncidentFromTranscript(transcript: string): Promise<IncidentExtract> {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const result = await model.generateContent({
     contents: [{ role: "user", parts: [{ text: `${EXTRACT_PROMPT}\n\nTranscript: "${transcript}"` }] }],

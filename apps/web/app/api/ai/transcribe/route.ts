@@ -4,10 +4,12 @@ import { NextRequest } from "next/server";
 import Groq from "groq-sdk";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
 // POST /api/ai/transcribe — audio → text via Groq Whisper
 export async function POST(request: NextRequest) {
+  if (!process.env.GROQ_API_KEY) {
+    return apiError("Transcription is not configured on this deployment.", 503);
+  }
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   const formData = await request.formData();
   const audioFile = formData.get("audio") as File | null;
 

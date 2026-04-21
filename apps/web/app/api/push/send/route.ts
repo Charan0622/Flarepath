@@ -4,12 +4,6 @@ import { NextRequest } from "next/server";
 import webpush from "web-push";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT ?? "mailto:admin@flarepath.app",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
-
 const SEVERITY_EMOJI: Record<string, string> = {
   critical: "🔴",
   high: "🟠",
@@ -17,8 +11,20 @@ const SEVERITY_EMOJI: Record<string, string> = {
   low: "🟢",
 };
 
+let vapidConfigured = false;
+function ensureVapid(): boolean {
+  if (vapidConfigured) return true;
+  const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const priv = process.env.VAPID_PRIVATE_KEY;
+  if (!pub || !priv) return false;
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT ?? "mailto:admin@flarepath.app", pub, priv);
+  vapidConfigured = true;
+  return true;
+}
+
 // POST /api/push/send — send push notification (internal use)
 export async function POST(request: NextRequest) {
+  if (!ensureVapid()) return apiError("Push notifications are not configured.", 503);
   const body = await request.json();
   const { subscription, title, message, url, severity } = body;
 

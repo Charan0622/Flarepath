@@ -3,7 +3,11 @@ import "server-only";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+function getGenAI(): GoogleGenerativeAI {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY is not configured");
+  return new GoogleGenerativeAI(key);
+}
 
 const SummarySchema = z.object({
   summary: z.string(),
@@ -25,7 +29,7 @@ Return ONLY valid JSON:
 }`;
 
 export async function generateIncidentSummary(incident: Record<string, unknown>): Promise<z.infer<typeof SummarySchema>> {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const incidentData = `
 Type: ${incident.type}

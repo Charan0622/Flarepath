@@ -12,14 +12,13 @@ const ReportSchema = z.object({
   description: z.string().min(1),
 });
 
-// Use service role — citizen reports don't require auth
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 // POST /api/citizen-report — public endpoint, no auth required
 export async function POST(request: NextRequest) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return apiError("Citizen reporting is not configured.", 503);
+  const supabase = createClient(url, serviceKey);
+
   const body = await request.json();
   const parsed = ReportSchema.safeParse(body);
   if (!parsed.success) return apiError(parsed.error.issues.map((i) => i.message).join(", "), 400);

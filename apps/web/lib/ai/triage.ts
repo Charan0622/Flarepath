@@ -4,7 +4,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import { createHash } from "crypto";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+function getGenAI(): GoogleGenerativeAI {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY is not configured");
+  return new GoogleGenerativeAI(key);
+}
 
 export const TriageOutputSchema = z.object({
   predicted_type: z.enum(["structure_fire", "vehicle_fire", "wildfire", "medical", "hazmat", "rescue", "false_alarm", "other"]),
@@ -63,7 +67,7 @@ export async function triageWithGemini(
 Classify this incident and recommend response resources. Return JSON only.`;
 
   const promptHash = createHash("md5").update(userPrompt).digest("hex").slice(0, 12);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
   const start = Date.now();
 
   const result = await model.generateContent({
