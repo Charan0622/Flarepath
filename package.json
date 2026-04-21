@@ -22,6 +22,9 @@
   "author": "Charan",
   "license": "MIT",
   "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "devDependencies": {
     "turbo": "^2.9.6"
   },
