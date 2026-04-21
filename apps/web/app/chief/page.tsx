@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser, getServiceClient } from "@/lib/supabase/api";
 
+// Auth-gated redirect resolver — never prerender.
+export const dynamic = "force-dynamic";
+
 // /chief with no dispatchId — pick the most recent active dispatch and jump
 // straight to its chief console. Falls back to the home page if there are
 // no active dispatches.

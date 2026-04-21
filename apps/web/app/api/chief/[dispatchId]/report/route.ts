@@ -14,11 +14,11 @@ interface ChiefReportPayload {
   mayday: { name: string; location: string; raised_at: string; resolved_at: string | null } | null;
 }
 
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
-
 async function generateNarrative(input: string): Promise<string> {
-  if (!genAI) return "AI narrative unavailable — configure GEMINI_API_KEY to enable automated post-incident prose.";
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return "AI narrative unavailable — configure GEMINI_API_KEY to enable automated post-incident prose.";
   try {
+    const genAI = new GoogleGenerativeAI(key);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const res = await model.generateContent(input);
     return res.response.text().trim();

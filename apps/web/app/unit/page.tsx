@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser, getServiceClient } from "@/lib/supabase/api";
 
+// Auth-gated redirect resolver — never prerender.
+export const dynamic = "force-dynamic";
+
 // /unit with no dispatchId — redirect to the member's most recent active
 // dispatch. For demo, pick the newest active dispatch in the org.
 export default async function UnitIndexPage() {
