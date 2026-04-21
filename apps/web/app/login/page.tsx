@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import BrandMark from "@/components/BrandMark";
@@ -75,6 +75,14 @@ export default function LoginPage() {
   const [hovered, setHovered] = useState<string | null>(null);
   const router = useRouter();
 
+  // Warm the JIT-compile cache for all three role landing pages so the click
+  // only pays network latency, not the page-build time.
+  useEffect(() => {
+    router.prefetch("/");
+    router.prefetch("/chief");
+    router.prefetch("/unit");
+  }, [router]);
+
   async function handleLogin(role: string) {
     setLoading(role);
     const res = await fetch("/api/auth/demo", {
@@ -88,7 +96,11 @@ export default function LoginPage() {
       setLoading(null);
       return;
     }
-    router.push("/");
+    // Role-based landing: chiefs → chief console, firefighters → unit HUD,
+    // dispatchers → command-center dashboard.
+    if (role === "chief") router.push("/chief");
+    else if (role === "firefighter") router.push("/unit");
+    else router.push("/");
     router.refresh();
   }
 
