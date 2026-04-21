@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { aStar, buildSimpleGraph } from "../../../../../../packages/core/src/domain/routing/astar";
+import { aStar, buildSimpleGraph } from "@flarepath/core";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
 const RouteRequestSchema = z.object({

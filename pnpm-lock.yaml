@@ -18,6 +18,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@flarepath/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@google/generative-ai':
         specifier: ^0.24.1
         version: 0.24.1
