@@ -4,11 +4,11 @@
   "private": true,
   "description": "AI-powered fire emergency dispatch platform with real-time routing and in-browser navigation",
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm --filter web lint",
+    "typecheck": "pnpm -r --parallel run typecheck",
+    "test": "pnpm -r --parallel run test",
     "supabase:types": "pnpm --filter supabase run generate"
   },
   "keywords": [
@@ -24,9 +24,6 @@
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": "20.x"
-  },
-  "devDependencies": {
-    "turbo": "^2.9.6"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.3"
