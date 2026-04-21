@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Mic, AlertTriangle, Activity } from "lucide-react";
 import { useMember, type MemberStatus } from "@/lib/member-store";

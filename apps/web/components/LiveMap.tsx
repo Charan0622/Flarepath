@@ -212,7 +212,7 @@ export default function LiveMap({ onIncidentClick, onVehicleClick, incidents, ac
     const srcs = new Set(rL.current.map((id) => id.replace(/-\w+$/, "")));
     srcs.forEach((s) => { try { if (m.getSource(s)) m.removeSource(s); } catch {} });
     rL.current = [];
-    dashRafRef.current && cancelAnimationFrame(dashRafRef.current);
+    if (dashRafRef.current) cancelAnimationFrame(dashRafRef.current);
     if (!selectedIncidentId || !activeDispatches) return;
     const sel = activeDispatches.filter((d) => d.incident_id === selectedIncidentId && d.route_geojson);
     if (!sel.length) return;

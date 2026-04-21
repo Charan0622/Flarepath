@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { Navigation, Flame, DoorOpen, Eye, Compass } from "lucide-react";
+import { DoorOpen, Eye } from "lucide-react";
 import {
   nearestHydrants, positionForTask, crewLngLat,
-  ZONE_RADIUS_M, TASKS, type Zone,
+  ZONE_RADIUS_M, type Zone,
 } from "@/lib/chief-data";
 import type { CrewMember } from "@/lib/crew-data";
 import { useMember } from "@/lib/member-store";

@@ -16,7 +16,7 @@ const formSchema = z.object({
   longitude: z.number(),
   type: z.enum(["structure_fire", "vehicle_fire", "wildfire", "medical", "hazmat", "rescue", "false_alarm", "other"]),
   description: z.string().min(1, "Description is required"),
-  hazards: z.array(z.string()).default([]),
+  hazards: z.array(z.string()),
 });
 
 type FormData = z.infer<typeof formSchema>;

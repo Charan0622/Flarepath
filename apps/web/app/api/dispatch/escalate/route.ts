@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError } from "@/lib/api-response";
+import { apiSuccess } from "@/lib/api-response";
 
 function getSupabase() {
   const cookieStore = cookies();

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   LogOut, Clock, AlertCircle, CheckSquare,
   Shield, Radio,
@@ -36,7 +35,6 @@ export default function ChiefHeader({
   captain, radioChannel, onSceneAt,
   onOpenMayday, onRequestClose, maydayActive,
 }: Props) {
-  const router = useRouter();
   const { state, startPar, completePar } = useChief();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {

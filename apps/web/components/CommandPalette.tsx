@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Search, Flame, Map, Radio, Plus, X } from "lucide-react";
+import { Search, Flame, Map, Radio, Plus } from "lucide-react";
 
 interface Props {
   isOpen: boolean;

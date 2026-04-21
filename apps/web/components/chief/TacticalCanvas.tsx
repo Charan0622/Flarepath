@@ -162,16 +162,13 @@ export default function TacticalCanvas({ incidentCoords, stationCoords, routeGeo
       const METERS_PER_DEG_LAT = 111_320;
 
       const segLen: number[] = [];
-      let totalLen = 0;
       for (let i = 1; i < coords.length; i++) {
         const [lng1, lat1] = coords[i - 1];
         const [lng2, lat2] = coords[i];
         const cosLat = Math.cos((lat1 * Math.PI) / 180);
         const dx = (lng2 - lng1) * METERS_PER_DEG_LAT * cosLat;
         const dy = (lat2 - lat1) * METERS_PER_DEG_LAT;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        segLen.push(d);
-        totalLen += d;
+        segLen.push(Math.sqrt(dx * dx + dy * dy));
       }
 
       const chevrons: { pos: [number, number]; bearing: number }[] = [];
@@ -375,7 +372,7 @@ export default function TacticalCanvas({ incidentCoords, stationCoords, routeGeo
     // Animation loop — runs at 10fps, drives both journey + on-scene drift
     cancelAnimationFrame(crewRafRef.current);
     let last = 0;
-    let lastPhase = new Map<string, CrewPhase>();
+    const lastPhase = new Map<string, CrewPhase>();
     const tick = (now: number) => {
       if (now - last > 100) {
         last = now;

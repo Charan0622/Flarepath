@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Star, Shield, Radio, AlertTriangle, Thermometer, Wind, Heart } from "lucide-react";
+import { Star, Radio, Wind, Heart } from "lucide-react";
 import type { CrewMember } from "@/lib/crew-data";
 import { synthesizeBiometric, TASKS, type TaskKey, type IcsPosition } from "@/lib/chief-data";
 import { useChief } from "@/lib/chief-store";
@@ -316,7 +316,7 @@ interface CrewAvatarProps {
   onParAck?: () => void;
 }
 
-function CrewAvatar({ member, leader, tick, activity, assigned, parResponded, parActive, onClick, onParAck }: CrewAvatarProps) {
+function CrewAvatar({ member, leader, tick: _tick, activity, assigned, parResponded, parActive, onClick, onParAck }: CrewAvatarProps) {
   const bio = synthesizeBiometric(member.badge, activity);
   const hrPulseMs = Math.round(60_000 / bio.heart_rate);
   const statusColor = STATUS_COLOR[bio.status];

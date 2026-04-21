@@ -56,7 +56,7 @@ export default function OrbitalStub({ captain, members, memberBadge }: Props) {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Users size={14} style={{ color: "#eab308" }} />
-                  <span className="text-[13px] font-bold text-white">Chief's Constellation</span>
+                  <span className="text-[13px] font-bold text-white">Chief&apos;s Constellation</span>
                 </div>
                 <button onClick={() => setOpen(false)} className="p-1 rounded hover:bg-white/[0.05]">
                   <X size={14} style={{ color: "#a1a1aa" }} />

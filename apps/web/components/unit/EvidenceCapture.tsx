@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Mic, MapPin, X, Check } from "lucide-react";
+import { Camera, Mic, MapPin } from "lucide-react";
 import { useMember } from "@/lib/member-store";
 import { getPrePlan } from "@/lib/chief-data";
 

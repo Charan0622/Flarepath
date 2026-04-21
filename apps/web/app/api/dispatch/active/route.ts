@@ -19,7 +19,7 @@ export async function GET() {
   }
 
   // Get vehicle details
-  const vehicleIds = [...new Set(dispatches.map((d) => d.vehicle_id))];
+  const vehicleIds = Array.from(new Set(dispatches.map((d) => d.vehicle_id)));
   const { data: vehicles } = await db
     .from("vehicles")
     .select("id, call_sign, type, station_id")
@@ -28,7 +28,7 @@ export async function GET() {
   const vehicleMap = new Map((vehicles ?? []).map((v) => [v.id, v]));
 
   // Get incident details
-  const incidentIds = [...new Set(dispatches.map((d) => d.incident_id))];
+  const incidentIds = Array.from(new Set(dispatches.map((d) => d.incident_id)));
   const { data: incidents } = await db
     .from("incidents")
     .select("id, type, severity, address, status")

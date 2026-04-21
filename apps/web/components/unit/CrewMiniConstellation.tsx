@@ -26,9 +26,12 @@ const STATUS_COLOR: Record<string, string> = {
 export default function CrewMiniConstellation({
   captain, members, memberBadge, buddyBadge, onSelectBuddy,
 }: Props) {
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1500);
+    if (typeof document === "undefined") return;
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") setTick((t) => t + 1);
+    }, 1500);
     return () => clearInterval(id);
   }, []);
 

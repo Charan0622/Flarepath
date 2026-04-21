@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { ComposedChart, Area, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip } from "recharts";
 import AnalyticsCard, { MetaChip } from "./AnalyticsCard";
 
@@ -11,8 +11,6 @@ interface Props {
 }
 
 export default function IncidentForecast({ history, forecast, span = 4 }: Props) {
-  const now = { label: "Now" };
-
   // Merge history + forecast into one series so the chart renders continuously
   const series = [
     ...history.map((h) => ({ label: h.label, actual: h.actual, predicted: null, p_low: null, p_high: null })),

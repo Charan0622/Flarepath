@@ -92,7 +92,7 @@ export default function CitizenReportPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-[#888] mb-1">What's happening? *</label>
+            <label className="block text-xs font-medium text-[#888] mb-1">What&apos;s happening? *</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}

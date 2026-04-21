@@ -142,7 +142,7 @@ export default function VoiceCommandOverlay({ onIntent }: Props) {
                   {INTENTS.map((i) => (
                     <div key={i.action} className="text-[9px] px-2 py-1 rounded text-left"
                       style={{ background: `${i.accent}18`, color: i.accent, border: `1px solid ${i.accent}40` }}>
-                      "{i.keyword.join(" ")}"
+                      &ldquo;{i.keyword.join(" ")}&rdquo;
                     </div>
                   ))}
                 </div>

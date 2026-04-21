@@ -20,7 +20,7 @@ interface Props {
 }
 
 export default function MemberHeader({
-  memberName, callSign, captain, members, memberBadge,
+  memberName: _memberName, callSign: _callSign, captain, members, memberBadge,
   captainBearing, captainDistance, onPickBuddy, buddyName,
 }: Props) {
   const { state, toggleSmoke } = useMember();

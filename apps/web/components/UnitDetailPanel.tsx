@@ -22,7 +22,6 @@ interface Dispatch {
   incident: { id: string; type: string; severity: string; address: string; status: string } | null;
 }
 
-interface Station { id: string; name: string; address: string }
 
 async function fetchActive(): Promise<Dispatch[]> {
   const res = await fetch("/api/dispatch/active");

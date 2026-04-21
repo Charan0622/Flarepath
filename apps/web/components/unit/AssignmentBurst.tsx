@@ -21,7 +21,7 @@ interface Props {
 // The singular most important UI element: when the chief pushes you a
 // task, this card bursts onto the screen — radial burst from captain's
 // avatar, streaming order text, two-step ACK button, haptic.
-export default function AssignmentBurst({ latest, captainName, captainBadge, memberName }: Props) {
+export default function AssignmentBurst({ latest, captainName, captainBadge: _captainBadge, memberName }: Props) {
   const { state, ackOrder } = useMember();
   const [elapsed, setElapsed] = useState(0);
 

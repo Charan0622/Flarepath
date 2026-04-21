@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import {
   Inbox, Radio, CheckCheck, AlertCircle, Clock, Info, Megaphone,
-  Shield, Wind, Flame, Users,
 } from "lucide-react";
 import { useChief } from "@/lib/chief-store";
 import { composeOrder, demoWeather } from "@/lib/chief-data";
