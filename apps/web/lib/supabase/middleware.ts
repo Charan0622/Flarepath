@@ -6,10 +6,16 @@ const PUBLIC_ROUTES = ["/login", "/signup", "/api/health", "/report", "/api/citi
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // If Supabase env is missing, don't 500 — just pass the request through so
+  // the app's own UI can render a configuration-error page instead of
+  // Vercel's generic MIDDLEWARE_INVOCATION_FAILED.
+  if (!url || !anonKey) return supabaseResponse;
+
+  try {
+    const supabase = createServerClient(url, anonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -24,28 +30,31 @@ export async function updateSession(request: NextRequest) {
           );
         },
       },
+    });
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const isPublicRoute = PUBLIC_ROUTES.some((route) =>
+      request.nextUrl.pathname.startsWith(route)
+    );
+
+    if (!user && !isPublicRoute) {
+      const redirect = request.nextUrl.clone();
+      redirect.pathname = "/login";
+      return NextResponse.redirect(redirect);
     }
-  );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
+      const redirect = request.nextUrl.clone();
+      redirect.pathname = "/";
+      return NextResponse.redirect(redirect);
+    }
 
-  const isPublicRoute = PUBLIC_ROUTES.some((route) =>
-    request.nextUrl.pathname.startsWith(route)
-  );
-
-  if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return supabaseResponse;
+  } catch {
+    // Any auth/network blip in the Edge runtime must not crash the request.
+    return supabaseResponse;
   }
-
-  if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-
-  return supabaseResponse;
 }
