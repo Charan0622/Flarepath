@@ -3,30 +3,100 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0c0c10;
-  --bg-card: #15151a;
-  --bg-hover: #1c1c22;
-  --bg-elevated: #222228;
-  --border: #2a2a32;
-  --text: #eeeef0;
-  --text-dim: #9898a0;
-  --text-faint: #58585e;
-  --critical: #ef4444;
-  --high: #f97316;
-  --medium: #eab308;
-  --low: #22c55e;
-  --blue: #3b82f6;
+  --bg-deep: #06060a;
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-softer: rgba(255, 255, 255, 0.04);
+  --border-hover: rgba(255, 255, 255, 0.12);
 }
+
+html, body { height: 100%; }
 
 body {
-  color: var(--text);
-  background: var(--bg);
+  color: #e8e8ec;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+  background-color: var(--bg-deep);
+  background-image:
+    radial-gradient(1200px 600px at 10% -10%, rgba(239, 68, 68, 0.09), transparent 60%),
+    radial-gradient(1000px 500px at 110% 110%, rgba(59, 130, 246, 0.07), transparent 60%),
+    radial-gradient(700px 400px at 50% 60%, rgba(168, 85, 247, 0.04), transparent 60%);
 }
 
-::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
 
+/* ─── Glass surfaces ─────────────────────────────────────────── */
+.glass {
+  background: rgba(14, 14, 20, 0.6);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid var(--border-soft);
+}
+.glass-strong {
+  background: rgba(14, 14, 20, 0.78);
+  backdrop-filter: blur(32px) saturate(160%);
+  -webkit-backdrop-filter: blur(32px) saturate(160%);
+  border: 1px solid var(--border-soft);
+}
+.glass-strip {
+  background: rgba(10, 10, 14, 0.72);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+.glass-divider-b { border-bottom: 1px solid var(--border-soft); }
+.glass-divider-t { border-top: 1px solid var(--border-soft); }
+.glass-divider-r { border-right: 1px solid var(--border-soft); }
+.glass-divider-l { border-left: 1px solid var(--border-soft); }
+
+/* Interactive card — subtle lift + glow on hover */
+.glass-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-soft);
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.045);
+  border-color: var(--border-hover);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Interactive nav/button row — flat but responsive */
+.glass-row {
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.glass-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Mapbox overrides — keep the map controls on-theme */
 .mapboxgl-popup-content { background: transparent !important; box-shadow: none !important; padding: 0 !important; }
 .mapboxgl-popup-tip { display: none; }
 .mapboxgl-popup-close-button { display: none; }
+.mapboxgl-ctrl-group { background: rgba(14, 14, 20, 0.7) !important; border: 1px solid var(--border-soft) !important; backdrop-filter: blur(14px) saturate(140%); border-radius: 10px !important; }
+.mapboxgl-ctrl-group button { color: #9a9aa2 !important; }
+.mapboxgl-ctrl-group button:hover { background: rgba(255, 255, 255, 0.06) !important; color: #fff !important; }
+
+/* ─── Keyframes ──────────────────────────────────────────────── */
+@keyframes beacon-pulse {
+  0%, 100% { box-shadow: 0 0 8px var(--c), 0 0 24px var(--c); opacity: 0.8; }
+  50% { box-shadow: 0 0 16px var(--c), 0 0 48px var(--c); opacity: 1; }
+}
+
+@keyframes sweep {
+  0% { left: -30%; }
+  100% { left: 130%; }
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes brand-pulse {
+  0%, 100% { box-shadow: 0 4px 14px rgba(239, 68, 68, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18); }
+  50% { box-shadow: 0 4px 22px rgba(239, 68, 68, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.22); }
+}
+
+.ticker-wrap:hover .ticker-track { animation-play-state: paused; }

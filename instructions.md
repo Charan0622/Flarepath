@@ -754,9 +754,103 @@ Full A* implementation in pure TypeScript:
 
 ---
 
-## Phase 3 — Wow Features
-*Optional. Will be updated if pursued.*
+## Phase 3 — UX Overhaul, Command-Centre Analytics & Role Consoles (2026-04-19 → 2026-04-20)
+
+A comprehensive design-language pass plus three new full-page experiences. The app went from "working demo" to "portfolio piece" in this phase.
+
+### 3.1 Glass Design System
+
+**Files:** `apps/web/app/globals.css`, `apps/web/components/BrandMark.tsx`, `apps/web/components/NavRail.tsx`, `apps/web/components/MapResetButton.tsx`
+
+- Added CSS tokens: `.glass`, `.glass-strong`, `.glass-strip`, `.glass-card`, `.glass-row`, `.glass-divider-{t,b,l,r}`. Each uses `backdrop-filter: blur(24–32px) saturate(140–160%)` over a translucent base, with 1px subtle borders and standardized 180ms transitions for hover states.
+- **Body backdrop** is now three layered radial gradients (red top-left, blue bottom-right, purple mid) anchored to the viewport — gives every glass panel something to blur against.
+- **`BrandMark` component** — single source of truth for the Flarepath identity. Red radial-gradient rounded tile containing a layered SVG: emergency siren dome with glow rays, horizon seam, and a faceted two-tone navigation arrow below. Supports `showWord`, `subtitle`, `hideMark`, `animated` props; used in the nav rail, every page header, and the login screen.
+- **`NavRail`** — 56px left icon rail shared across Dispatch, Teams, and Analytics. Pulsing brand mark at top, three nav items (Dispatch/Teams/Analytics) with active-state gradient glow and red left-edge indicator, Logout at bottom, tooltips on hover.
+- **`MapResetButton`** — small glass home button pinned top-right on every Mapbox instance; `flyTo` restores each map's initial camera.
+
+### 3.2 Dispatcher Dashboard (full redesign)
+
+**Files:** `apps/web/components/DashboardShell.tsx`, `apps/web/components/LiveMap.tsx`, `apps/web/components/IncidentDetail.tsx`, `apps/web/components/UnitDetailPanel.tsx`, `apps/web/components/IncidentTicker.tsx`, `apps/web/components/StationDetailPopover.tsx`
+
+- Grid swapped from floating glass panels to a real 4-column CSS grid: `[56px rail][300px feed][1fr map][conditional detail overlay]`. Header + ticker span the content columns; rail spans all rows.
+- **LiveMap** vehicles now render as **directional chevron markers** — the arrow rotates to match the bearing of the current route segment (real compass math with `atan2(dx, dy)`). Motion is single-trip, paced to the dispatch's real `eta_seconds` (no more looping demo animation).
+- **Clickable vehicle arrows** → `UnitDetailPanel` slides in from the right as a transparent glass overlay (framer-motion spring, `stiffness: 260, damping: 28`). Shows captain, crew, radio channel, ETA, distance, certifications.
+- **Clickable station markers** (FS-01/FS-07/FS-30) → `StationDetailPopover` — centered glass dialog with Battalion Chief, 3 shift commanders, housed apparatus + full crew per unit, coverage area, specialties, radio frequencies, phone, established year.
+- **Dispatched route** is a 3-layer animated line (glow + base + marching dashes cycling through 16 keyframes) — the classic "red flarepath" product signature.
+- **Incident markers** are asymmetric fire emblems with pulsing severity halos, auto-selected type-label chips, and grounding rays.
+- **Ticker** at the bottom is a marquee of active incidents + units with a pulsing LIVE badge and edge-fade mask.
+- **Resolve flow** — new `POST /api/incidents/[id]/resolve` endpoint that cascades: completes all active dispatches, frees vehicles, marks incident resolved. Triggers a toast + browser Notification when any incident transitions into resolved.
+
+### 3.3 Teams / Crew Management page
+
+**Files:** `apps/web/app/teams/page.tsx`, `apps/web/components/teams/*`, `apps/web/lib/crew-data.ts`, `apps/web/lib/crew-store.tsx`
+
+- New route **/teams** — three-pane crew management at 56/320/1fr/360 grid.
+- **Left:** units list sorted alphabetically, custom units tagged with a sparkle icon, `+ New` button.
+- **Center:** unit editor — inline rename, delete, shift toggle (A/B/C), radio-channel + station edit, captain card (gold), member rows with ↑ promote-to-captain and × remove-from-unit actions, an `+ Add new firefighter` inline form.
+- **Right:** personnel pool — search by name/badge/rank, click `Assign →` or drag-drop any member onto a unit in the list or into the editor; new members can be hired directly into the pool.
+- **Native HTML5 drag-and-drop** — no new dependency. Pool items become draggable with a grip-handle affordance; unit list rows + the roster panel light up green-dashed on hover.
+- **`CrewProvider` + `useCrew()`** — React Context + reducer crew store wrapped around the entire app in `layout.tsx`. Persists to `localStorage` under `flarepath.crew.v3`; seeded from `crew-data.ts` on first load. Actions: `addMember`, `removeMember`, `promoteCaptain`, `createUnit`, `deleteUnit`, `renameUnit`, `updateUnitMeta`, `addToPool`, `removeFromPool`, `reset`.
+- **Unit display names** — each unit has a `displayName` field carrying a user-facing name (Agni/Vayu/Surya/Hanuman/Varuna/Bhima were experimented with, now back to the operational SJFD call-signs). Look up via `displayNameFor(callSign)` helper.
+
+### 3.4 Analytics — 15-card Command-Centre Dashboard
+
+**Files:** `apps/web/app/analytics/page.tsx`, `apps/web/app/api/analytics/route.ts`, `apps/web/components/analytics/*` (15 card files), `apps/web/lib/postgis.ts`, `apps/web/lib/nfirs-benchmark.ts`
+
+Replaced the thin "4 stat cards + 3 charts" page with a research-grounded 15-card dashboard based on NFPA 1710, Motorola PremierOne, Hexagon OnCall, LAFD FireStatLA, NFIRS, and Fitch UHU doctrine.
+
+**The cards:**
+1. **NFPAGauge** — radial gauge of p90 total response vs. 390s target, with call-processing / turnout / travel / total segment bars.
+2. **StressMeter** — concurrent incident pressure index 0–100% with threshold marker at 80.
+3. **RouteEfficiency** — planned-vs-actual ETA accuracy gauge with a 30-sample dual-line sparkline.
+4. **HotspotHeatmap** — Mapbox heatmap layer with 7/30/365-day toggle + severity weighting.
+5. **IncidentForecast** — seasonal-naive 4-hour forecast with confidence cone (falls back to a diurnal baseline for empty DBs).
+6. **CoverageIsochrones** — Mapbox station coverage rings (4-min red, 8-min orange), uncovered incidents pulsing.
+7. **UnitStatusBoard** — kanban of Available/Assigned/Ack'd/En Route/On Scene/OOS with fatigue glow after 45 min on scene; clicking any unit opens **`UnitCrewPopover`** (centered glass dialog with captain + crew + radio).
+8. **ResponseFlowMap** — Mapbox arc lines from station → scene, thickness = count, colour = severity, marching dashes animate direction.
+9. **TurnoutLeaderboard** — station ranking with p90 bars, green-under-80s/red-over, sparklines per station.
+10. **OutlierScatter** — Recharts scatter of travel × severity; critical/high over 6 min outlined white.
+11. **UHUHeatmap** — apparatus × hour-of-day grid with blue→yellow→red gradient; cells >0.5 glow red.
+12. **TriageConfidence** — violin-ish box plots per severity class with AI-dispatcher agreement-rate pill.
+13. **NFIRSBenchmark** — dual-bar local mix vs. US federal baseline; deviation in percentage points.
+14. **ResponseDistribution** — 30-second histogram with p50/NFPA/p90 reference lines.
+15. **AIInsightsFeed** — horizontal snap-scroll of Gemini post-incident summaries with auto-extracted tags (`#water-supply-delay`, `#access-issue`, `#mutual-aid`).
+
+**Backend engineering:**
+- One comprehensive `/api/analytics` endpoint computes everything in parallel.
+- **`lib/postgis.ts`** — EWKB-hex parser for PostGIS `geography(POINT, 4326)`. Turns Supabase's hex strings into `[lng, lat]`. Handles SRID flag, endianness, and validates lng/lat bounds.
+- Every incident and station is enriched with parsed coordinates; falls back to a 10-address seed lookup, then to a deterministic hash-based demo coord if nothing matches — so the heatmap never goes blank.
+- **Dispatch timestamp synthesis** — for dispatches that are terminal but missing `en_route_at`/`on_scene_at` (force-completed by resolve), the endpoint synthesizes plausible intervals from `assigned_at + eta_seconds` so turnout and outlier cards always populate.
+- **Insights synthesis** — if `incident_reports` is empty, the endpoint builds pseudo-insights from `ai_triage.reasoning` + incident metadata for recent incidents.
+- All map cards now defer `new mapboxgl.Map()` by one `requestAnimationFrame` so CSS grid has measured the cell before Mapbox sizes its canvas. Plus `m.resize()` on load + ResizeObserver.
+- Every map card shows a data-count badge (`N pts`, `N flows`, `N stations · N inc`) so empty state is obvious.
+
+### 3.5 New Routes Summary
+
+- `/` — Dispatcher dashboard (redesigned)
+- `/teams` — Crew management (new)
+- `/analytics` — 15-card ops dashboard (new, replaces old `(desktop)/analytics`)
+- `/login` — Role picker (BrandMark refresh)
+- `/api/incidents/[id]/resolve` — New cascade endpoint
+- `/api/analytics` — Comprehensive rewrite
+
+### 3.6 Key Dependencies (unchanged — no new npm deps added)
+
+Native HTML5 drag-and-drop, framer-motion for transitions, Recharts for charts, Mapbox GL JS v3 for maps, Supabase for data, Gemini for AI triage + post-incident summaries. Crew management and unit names are a React Context+reducer + localStorage — no Zustand needed.
+
+### 3.7 What "Done" Looked Like
+
+- Every page uses the same `BrandMark`, `NavRail`, `.glass-card`, and hover timing for visual uniformity.
+- Every Mapbox instance has a reset button + resize observer + error logging.
+- Every interactive element has a keyboard path (ESC closes modals, Enter submits forms, `N` opens New Incident).
+- `pnpm turbo run typecheck` — no errors introduced by Phase 3 (pre-existing NewIncidentModal type warnings remain, unrelated).
 
 ---
 
-*Last updated: 2026-04-19 — Phase 2 complete (voice intake, analytics, A*, heatmap)*
+## Phase 4 — Unit Chief Console (in progress)
+
+Next up: `/chief/[dispatchId]` — the captain's command view with 20 features + 20 design elements (tactical canvas, dispatcher tether, streaming order reveal, orbital crew constellation, assignment rays, PAR clock, LUNAR Mayday, Gemini tactical briefing, post-incident PDF, etc.). Grounded in NFPA 1561 accountability, NFPA 1407 RIT, ICS-201, LUNAR Mayday mnemonic, IAFC CRM radio policy, and the Tablet Command / Adashi / MSA Connected Firefighter / Active911 / First Due real-world UIs.
+
+---
+
+*Last updated: 2026-04-20 — Phase 3 complete (glass UI, role consoles, 15-card analytics, unit+station popovers). Phase 4 (Unit Chief) kicking off.*

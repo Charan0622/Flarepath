@@ -42,10 +42,27 @@ export async function GET(
     db.from("dispatches").select("*").eq("incident_id", params.id),
   ]);
 
+  // Join vehicle info so the client can show the unit call-sign (and map it to
+  // a display name like "Agni") instead of a raw UUID slice.
+  const dispatches = dispatchResult.data ?? [];
+  let enrichedDispatches = dispatches;
+  if (dispatches.length > 0) {
+    const vehicleIds = Array.from(new Set(dispatches.map((d) => d.vehicle_id)));
+    const { data: vehicles } = await db
+      .from("vehicles")
+      .select("id, call_sign, type, station_id")
+      .in("id", vehicleIds);
+    const vehicleMap = new Map((vehicles ?? []).map((v) => [v.id, v]));
+    enrichedDispatches = dispatches.map((d) => ({
+      ...d,
+      vehicle: vehicleMap.get(d.vehicle_id) ?? null,
+    }));
+  }
+
   return apiSuccess({
     ...incident,
     triage: triageResult.data,
-    dispatches: dispatchResult.data ?? [],
+    dispatches: enrichedDispatches,
   });
 }
 

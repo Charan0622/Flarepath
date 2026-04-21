@@ -5,6 +5,7 @@ import QueryProvider from "@/components/QueryProvider";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import InstallPrompt from "@/components/InstallPrompt";
 import ToastContainer from "@/components/Toast";
+import { CrewProvider } from "@/lib/crew-store";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -41,11 +42,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0a0a0b] text-[#ededed]`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ background: "#08080c", color: "#e8e8ec" }}
       >
         <ThemeProvider>
           <QueryProvider>
-            {children}
+            <CrewProvider>
+              {children}
+            </CrewProvider>
           </QueryProvider>
           <ServiceWorkerRegister />
           <InstallPrompt />

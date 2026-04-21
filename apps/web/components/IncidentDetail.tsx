@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { X, Brain, MapPin, Phone, User, AlertTriangle, Radio, FileText, MessageSquare } from "lucide-react";
+import { X, Brain, MapPin, Phone, User, AlertTriangle, Radio, FileText, CheckCircle2, Loader2 } from "lucide-react";
 import DispatchModal from "./DispatchModal";
 import IncidentChat from "./IncidentChat";
+import { showToast } from "./Toast";
+import { displayNameFor } from "@/lib/crew-data";
 
 interface IncidentDetailProps {
   incidentId: string;
@@ -30,12 +32,48 @@ const INCIDENT_COORDS: Record<string, { lat: number; lng: number }> = {
 
 export default function IncidentDetail({ incidentId, onClose, onRouteReady }: IncidentDetailProps) {
   const [showDispatch, setShowDispatch] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [confirmResolve, setConfirmResolve] = useState(false);
+  const qc = useQueryClient();
 
   const { data: incident, isLoading, refetch } = useQuery({
     queryKey: ["incident", incidentId],
     queryFn: () => fetchIncident(incidentId),
     enabled: !!incidentId,
   });
+
+  async function handleResolve() {
+    setResolving(true);
+    try {
+      const res = await fetch(`/api/incidents/${incidentId}/resolve`, { method: "POST" });
+      const json = await res.json();
+      if (json.error) {
+        showToast("error", json.error);
+        return;
+      }
+      const units = json.data?.completed_dispatches ?? 0;
+      showToast(
+        "success",
+        units > 0
+          ? `Incident resolved — ${units} unit${units > 1 ? "s" : ""} cleared`
+          : "Incident resolved"
+      );
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        new Notification("Flarepath — Situation resolved", {
+          body: incident?.address ?? "Incident closed",
+          icon: "/icons/icon-192.png",
+          tag: `resolved-${incidentId}`,
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["incidents"] });
+      qc.invalidateQueries({ queryKey: ["active-dispatches"] });
+      qc.invalidateQueries({ queryKey: ["incident", incidentId] });
+      setConfirmResolve(false);
+      onClose();
+    } finally {
+      setResolving(false);
+    }
+  }
 
   // Send route to parent for map rendering
   useEffect(() => {
@@ -56,6 +94,7 @@ export default function IncidentDetail({ incidentId, onClose, onRouteReady }: In
 
   const severityColor = SEVERITY_COLORS[incident.severity] ?? "#888";
   const canDispatch = ["open", "triaged"].includes(incident.status);
+  const canResolve = !["resolved", "cancelled"].includes(incident.status);
   const incidentCoords = INCIDENT_COORDS[incident.address] ?? { lat: 37.3382, lng: -121.8863 };
 
   return (
@@ -167,9 +206,18 @@ export default function IncidentDetail({ incidentId, onClose, onRouteReady }: In
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">🚒</span>
-                      <span className="text-xs font-semibold text-white">
-                        {(d.vehicle_id as string).slice(0, 8)}
-                      </span>
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-xs font-semibold text-white">
+                          {displayNameFor((d.vehicle as { call_sign?: string } | null)?.call_sign)
+                            || (d.vehicle as { call_sign?: string } | null)?.call_sign
+                            || "Unit"}
+                        </span>
+                        {(d.vehicle as { call_sign?: string } | null)?.call_sign && (
+                          <span className="text-[9px]" style={{ color: "#71717a" }}>
+                            {(d.vehicle as { call_sign: string }).call_sign}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <span
                       className="flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase"
@@ -234,6 +282,15 @@ export default function IncidentDetail({ incidentId, onClose, onRouteReady }: In
               Dispatch
             </button>
           )}
+          {canResolve && !canDispatch && !confirmResolve && (
+            <button
+              onClick={() => setConfirmResolve(true)}
+              className="flex-1 rounded-md bg-[#0a2a18] border border-[#3ddc84]/40 px-4 py-2.5 text-sm font-semibold text-[#3ddc84] transition-colors hover:bg-[#0e3a22] flex items-center justify-center gap-2"
+            >
+              <CheckCircle2 size={16} />
+              Mark Resolved
+            </button>
+          )}
           <a
             href={`/api/incidents/${incidentId}/pdf`}
             target="_blank"
@@ -244,6 +301,34 @@ export default function IncidentDetail({ incidentId, onClose, onRouteReady }: In
             PDF
           </a>
         </div>
+
+        {confirmResolve && (
+          <div className="rounded-lg border border-[#3ddc84]/30 bg-[#0a1a12] p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#3ddc84]">
+              <CheckCircle2 size={14} />
+              Resolve this incident?
+            </div>
+            <p className="text-[11px] text-[#888]">
+              All assigned units will be marked completed and returned to available status.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleResolve}
+                disabled={resolving}
+                className="flex-1 rounded-md bg-[#3ddc84] px-3 py-2 text-xs font-semibold text-[#04140c] hover:bg-[#2ec76f] disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {resolving ? <><Loader2 size={12} className="animate-spin" />Resolving…</> : "Confirm resolve"}
+              </button>
+              <button
+                onClick={() => setConfirmResolve(false)}
+                disabled={resolving}
+                className="rounded-md border border-[#333] px-3 py-2 text-xs text-[#888] hover:text-white"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Chat */}

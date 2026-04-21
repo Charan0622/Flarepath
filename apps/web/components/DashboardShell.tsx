@@ -1,166 +1,248 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus, Search, LogOut } from "lucide-react";
+import { Plus, Clock, Activity, AlertTriangle, Navigation, CheckCircle2, Search, Inbox } from "lucide-react";
 import IncidentFeed from "./IncidentFeed";
 import IncidentDetail from "./IncidentDetail";
 import LiveMap from "./LiveMap";
 import NewIncidentModal from "./NewIncidentModal";
 import KeyboardShortcuts from "./KeyboardShortcuts";
-import WeatherWidget from "./WeatherWidget";
 import CommandPalette from "./CommandPalette";
+import IncidentTicker from "./IncidentTicker";
+import UnitDetailPanel from "./UnitDetailPanel";
+import NavRail from "./NavRail";
+import BrandMark from "./BrandMark";
+import { showToast } from "./Toast";
 
 async function fetchIncidents() {
   const res = await fetch("/api/incidents?limit=50");
   return (await res.json()).data?.incidents ?? [];
 }
 
-async function fetchActiveDispatches() {
+async function fetchDispatches() {
   const res = await fetch("/api/dispatch/active");
   return (await res.json()).data?.dispatches ?? [];
 }
 
+function LiveClock() {
+  const [time, setTime] = useState("");
+  useEffect(() => {
+    const tick = () => setTime(new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <span className="tabular-nums">{time}</span>;
+}
+
+function StatTile({
+  icon: Icon, label, value, accent, pulse,
+}: { icon: typeof Activity; label: string; value: number; accent: string; pulse?: boolean }) {
+  return (
+    <div className="glass-card flex items-center gap-2.5 rounded-md px-3 py-1.5">
+      <div className="relative">
+        <Icon size={13} style={{ color: accent }} />
+        {pulse && value > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full animate-ping" style={{ background: accent }} />
+        )}
+      </div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-[13px] font-semibold tabular-nums" style={{ color: accent }}>{value}</span>
+        <span className="text-[10px] uppercase tracking-wider" style={{ color: "#6a6a72" }}>{label}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardShell() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showNewForm, setShowNewForm] = useState(false);
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [selId, setSelIdState] = useState<string | null>(null);
+  const [selDispatchId, setSelDispatchIdState] = useState<string | null>(null);
+  const [showNew, setShowNew] = useState(false);
+  const [showCmd, setShowCmd] = useState(false);
+
+  // Selection is mutually exclusive — picking an incident clears the unit view, and vice versa.
+  const setSelId = useCallback((id: string | null) => {
+    setSelIdState(id);
+    if (id) setSelDispatchIdState(null);
+  }, []);
+  const setSelDispatchId = useCallback((id: string | null) => {
+    setSelDispatchIdState(id);
+    if (id) setSelIdState(null);
+  }, []);
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
-  const { data: incidents = [], isLoading } = useQuery({ queryKey: ["incidents"], queryFn: fetchIncidents });
-  const { data: activeDispatches = [] } = useQuery({ queryKey: ["active-dispatches"], queryFn: fetchActiveDispatches, refetchInterval: 10000 });
+  const { data: incidents = [], isLoading } = useQuery({ queryKey: ["incidents"], queryFn: fetchIncidents, refetchInterval: 10000 });
+  const { data: dispatches = [] } = useQuery({ queryKey: ["active-dispatches"], queryFn: fetchDispatches, refetchInterval: 8000 });
 
-  const openNew = useCallback(() => setShowNewForm(true), []);
-  const closeDrawer = useCallback(() => setSelectedId(null), []);
-  const togglePalette = useCallback(() => setShowCommandPalette((p) => !p), []);
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "default") Notification.requestPermission().catch(() => {});
+  }, []);
 
-  const activeIncidents = incidents.filter((i: { status: string }) => !["resolved", "cancelled"].includes(i.status));
-  const criticalCount = activeIncidents.filter((i: { severity: string }) => i.severity === "critical").length;
+  const prevStatus = useRef<Map<string, string>>(new Map());
+  useEffect(() => {
+    if (!incidents.length) return;
+    const current = new Map<string, { status: string; address: string; type: string }>();
+    incidents.forEach((i: { id: string; status: string; address: string; type: string }) => {
+      current.set(i.id, { status: i.status, address: i.address, type: i.type });
+    });
+    if (prevStatus.current.size > 0) {
+      current.forEach((info, id) => {
+        const prev = prevStatus.current.get(id);
+        if (prev && prev !== "resolved" && info.status === "resolved") {
+          const label = info.type.replace(/_/g, " ");
+          showToast("success", `Resolved — ${label} at ${info.address.split(",")[0]}`);
+          if ("Notification" in window && Notification.permission === "granted") {
+            try {
+              new Notification("Flarepath — Situation resolved", {
+                body: `${label} at ${info.address.split(",")[0]}`,
+                icon: "/icons/icon-192.png",
+                tag: `resolved-${id}`,
+              });
+            } catch {}
+          }
+        }
+      });
+    }
+    const next = new Map<string, string>();
+    current.forEach((v, k) => next.set(k, v.status));
+    prevStatus.current = next;
+  }, [incidents]);
+
+  const openNew = useCallback(() => setShowNew(true), []);
+  const close = useCallback(() => { setSelIdState(null); setSelDispatchIdState(null); }, []);
+  const toggleCmd = useCallback(() => setShowCmd((p) => !p), []);
+
+  const active = incidents.filter((i: { status: string }) => !["resolved", "cancelled"].includes(i.status));
+  const critCount = active.filter((i: { severity: string }) => i.severity === "critical").length;
+  const enRoute = dispatches.filter((d: { status: string }) => d.status === "en_route").length;
+  const onScene = dispatches.filter((d: { status: string }) => d.status === "on_scene").length;
 
   return (
-    <div className="flex h-full" style={{ background: "#0c0c10" }}>
-      <KeyboardShortcuts onNewIncident={openNew} onCloseDrawer={closeDrawer} onCommandPalette={togglePalette} />
+    <div
+      className="h-screen w-screen overflow-hidden grid"
+      style={{
+        gridTemplateRows: "52px 1fr 40px",
+        gridTemplateColumns: "56px 300px 1fr",
+      }}
+    >
+      <KeyboardShortcuts onNewIncident={openNew} onCloseDrawer={close} onCommandPalette={toggleCmd} />
 
-      {/* Sidebar */}
-      <div className="w-[360px] shrink-0 flex flex-col" style={{ background: "#101014", borderRight: "1px solid #1e1e24" }}>
-        {/* Header */}
-        <div className="px-4 py-3" style={{ borderBottom: "1px solid #1e1e24" }}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2c-4 4-8 8-8 13a8 8 0 0016 0c0-5-4-9-8-13zm0 18a5 5 0 01-5-5c0-3 2.5-6.4 5-9.2 2.5 2.8 5 6.2 5 9.2a5 5 0 01-5 5z"/></svg>
-              </div>
-              <span className="text-sm font-semibold" style={{ color: "#eeeef0" }}>Flarepath</span>
-            </div>
-            <button
-              onClick={openNew}
-              className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors"
-              style={{ background: "#ef4444", color: "white" }}
-            >
-              <Plus size={12} />
-              New Incident
-            </button>
+      {/* Nav rail — spans all rows */}
+      <div className="row-span-3"><NavRail /></div>
+
+      {/* HEADER — spans 2 remaining columns */}
+      <header className="col-span-2 flex items-center justify-between px-5 glass-strip glass-divider-b">
+        <BrandMark showWord hideMark subtitle="Command Center" />
+
+        <div className="flex items-center gap-2">
+          <StatTile icon={AlertTriangle} label="critical" value={critCount} accent="#ef4444" pulse />
+          <StatTile icon={Activity} label="active" value={active.length} accent="#e4e4e7" />
+          <StatTile icon={Navigation} label="en route" value={enRoute} accent="#eab308" />
+          <StatTile icon={CheckCircle2} label="on scene" value={onScene} accent="#22c55e" />
+        </div>
+
+        <div className="flex items-center gap-1.5 text-[11px] tabular-nums" style={{ color: "#a1a1aa" }}>
+          <Clock size={12} />
+          <LiveClock />
+        </div>
+      </header>
+
+      {/* LEFT SIDEBAR — incident feed */}
+      <aside className="glass glass-divider-r flex flex-col overflow-hidden min-h-0">
+        <div className="flex items-center justify-between px-4 py-3 glass-divider-b">
+          <div className="flex items-center gap-2">
+            <Inbox size={13} style={{ color: "#a1a1aa" }} />
+            <span className="text-[12px] font-semibold text-white">Incidents</span>
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded tabular-nums" style={{ background: "rgba(255,255,255,0.06)", color: "#a1a1aa" }}>
+              {active.length}
+            </span>
           </div>
-
-          {/* Search */}
           <button
-            onClick={togglePalette}
-            className="w-full flex items-center gap-2 rounded-md px-3 py-1.5 text-[11px] transition-colors"
-            style={{ background: "#1a1a20", color: "#58585e", border: "1px solid #2a2a32" }}
+            onClick={openNew}
+            className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:brightness-110"
+            style={{ background: "#ef4444" }}
           >
-            <Search size={12} />
-            <span>Search incidents...</span>
-            <kbd className="ml-auto rounded px-1 py-0.5 text-[9px]" style={{ background: "#222228", color: "#58585e" }}>⌘K</kbd>
+            <Plus size={11} />
+            New
           </button>
-
-          {/* Stats */}
-          <div className="mt-2.5 flex items-center gap-4 text-[10px]" style={{ color: "#58585e" }}>
-            {criticalCount > 0 && (
-              <span className="flex items-center gap-1" style={{ color: "#ef4444" }}>
-                <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] animate-pulse" />
-                {criticalCount} critical
-              </span>
-            )}
-            <span>{activeIncidents.length} active</span>
-            <span>{activeDispatches.length} units deployed</span>
-          </div>
         </div>
 
-        {/* Feed */}
-        <div className="flex-1 overflow-auto">
-          <IncidentFeed onSelect={setSelectedId} selectedId={selectedId} incidents={incidents} isLoading={isLoading} />
-        </div>
+        <button
+          onClick={toggleCmd}
+          className="flex items-center gap-2 mx-3 mt-3 px-2.5 py-1.5 text-[11px] rounded-md transition-colors hover:bg-white/[0.04]"
+          style={{ background: "rgba(255,255,255,0.03)", color: "#71717a", border: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <Search size={11} />
+          <span>Search incidents…</span>
+          <kbd className="ml-auto text-[9px] px-1 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "#a1a1aa" }}>⌘K</kbd>
+        </button>
 
-        {/* Logout */}
-        <div style={{ borderTop: "1px solid #1e1e24", padding: "8px 16px" }}>
-          <form action="/api/auth/logout" method="POST">
-            <button
-              type="submit"
-              className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-[11px] transition-colors"
-              style={{ color: "#58585e" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#1a1a20"; e.currentTarget.style.color = "#ef4444"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#58585e"; }}
-            >
-              <LogOut size={13} />
-              Sign out
-            </button>
-          </form>
+        <div className="flex-1 overflow-auto mt-1">
+          <IncidentFeed onSelect={setSelId} selectedId={selId} incidents={incidents} isLoading={isLoading} />
         </div>
-      </div>
+      </aside>
 
-      {/* Map */}
-      <div className="relative flex-1">
+      {/* CENTER — map (now takes the full remaining width; detail pane overlays on selection) */}
+      <main className="relative overflow-hidden" style={{ background: "#08080c" }}>
         <LiveMap
-          onIncidentClick={setSelectedId}
+          onIncidentClick={setSelId}
+          onVehicleClick={setSelDispatchId}
           incidents={incidents}
-          activeDispatches={activeDispatches}
-          selectedIncidentId={selectedId}
+          activeDispatches={dispatches}
+          selectedIncidentId={selId}
+          selectedDispatchId={selDispatchId}
         />
-        <WeatherWidget />
-      </div>
+        {critCount > 0 && (
+          <div className="pointer-events-none absolute inset-0" style={{
+            boxShadow: "inset 0 0 100px rgba(239,68,68,0.08), inset 0 0 260px rgba(239,68,68,0.025)",
+          }} />
+        )}
 
-      {/* Detail Panel */}
+        {/* Sliding transparent detail overlay — only mounts when something is selected */}
+        <AnimatePresence>
+          {(selDispatchId || selId) && (
+            <motion.aside
+              key={selDispatchId ?? selId}
+              initial={{ x: 420, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 420, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 28 }}
+              className="glass-strong absolute top-3 right-3 bottom-3 w-[400px] rounded-xl flex flex-col overflow-hidden"
+              style={{
+                boxShadow: "0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06)",
+              }}
+            >
+              {selDispatchId ? (
+                <UnitDetailPanel
+                  dispatchId={selDispatchId}
+                  onClose={close}
+                  onOpenIncident={setSelId}
+                />
+              ) : selId ? (
+                <IncidentDetail incidentId={selId} onClose={close} />
+              ) : null}
+            </motion.aside>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* TICKER — spans the 2 content columns (not the rail) */}
+      <footer className="col-span-2 overflow-hidden glass-strip glass-divider-t">
+        <IncidentTicker incidents={incidents} dispatches={dispatches} onSelect={setSelId} />
+      </footer>
+
+      {/* MODALS */}
       <AnimatePresence>
-        {selectedId && (
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 400, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-            className="shrink-0 overflow-hidden"
-            style={{ background: "#101014", borderLeft: "1px solid #1e1e24" }}
-          >
-            <div className="w-[400px] h-full overflow-auto">
-              <IncidentDetail incidentId={selectedId} onClose={closeDrawer} />
-            </div>
-          </motion.div>
+        {showNew && (
+          <NewIncidentModal isOpen={showNew} onClose={() => setShowNew(false)} onCreated={(id) => { setShowNew(false); setSelId(id); qc.invalidateQueries({ queryKey: ["incidents"] }); qc.invalidateQueries({ queryKey: ["active-dispatches"] }); }} />
         )}
       </AnimatePresence>
-
-      <AnimatePresence>
-        {showNewForm && (
-          <NewIncidentModal
-            isOpen={showNewForm}
-            onClose={() => setShowNewForm(false)}
-            onCreated={(id) => {
-              setShowNewForm(false);
-              setSelectedId(id);
-              queryClient.invalidateQueries({ queryKey: ["incidents"] });
-              queryClient.invalidateQueries({ queryKey: ["active-dispatches"] });
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      <CommandPalette
-        isOpen={showCommandPalette}
-        onClose={() => setShowCommandPalette(false)}
-        onNewIncident={() => { setShowCommandPalette(false); openNew(); }}
-        onNavigate={(path) => router.push(path)}
-      />
+      <CommandPalette isOpen={showCmd} onClose={() => setShowCmd(false)} onNewIncident={() => { setShowCmd(false); openNew(); }} onNavigate={(p) => router.push(p)} />
     </div>
   );
 }
