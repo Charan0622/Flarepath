@@ -1,11 +1,23 @@
 import "server-only";
 import { getServiceClient } from "@/lib/supabase/api";
 
-// For a portfolio demo, Chief and Unit Member consoles are useless without
-// an active dispatch. If the database has no active dispatch when a chief or
-// firefighter logs in, seed one on-demand: pick any vehicle in their org,
-// create a realistic San Jose structure-fire incident, dispatch the vehicle
-// to it. Returns the dispatch id either way.
+// Full demo bootstrap: chief + unit consoles are useless without a dispatch,
+// which requires a vehicle, which requires a station. On a clean Supabase
+// where only organizations + profiles exist, this function idempotently
+// creates the whole dependency chain: station → vehicle → incident → dispatch.
+// Returns the dispatch id or null if the DB call chain failed somewhere.
+
+const DEMO_STATION = {
+  name: "SJFD Station 1",
+  address: "225 N Market St, San Jose, CA 95110",
+  lng: -121.8900, lat: 37.3394,
+};
+
+const DEMO_VEHICLES = [
+  { call_sign: "Engine 1", type: "engine", capacity: 6 },
+  { call_sign: "Ladder 1", type: "ladder", capacity: 4 },
+  { call_sign: "Rescue 1", type: "rescue", capacity: 4 },
+];
 
 const DEMO_INCIDENTS = [
   {
@@ -34,28 +46,68 @@ const DEMO_INCIDENTS = [
   },
 ];
 
+async function ensureStation(orgId: string): Promise<string | null> {
+  const db = getServiceClient();
+  const { data: existing } = await db
+    .from("stations")
+    .select("id")
+    .eq("organization_id", orgId)
+    .limit(1);
+  if (existing?.[0]) return existing[0].id;
+
+  const { data, error } = await db
+    .from("stations")
+    .insert({
+      organization_id: orgId,
+      name: DEMO_STATION.name,
+      address: DEMO_STATION.address,
+      location: `POINT(${DEMO_STATION.lng} ${DEMO_STATION.lat})`,
+    })
+    .select("id")
+    .single();
+  if (error || !data) return null;
+  return data.id;
+}
+
+async function ensureVehicle(orgId: string, stationId: string): Promise<string | null> {
+  const db = getServiceClient();
+  const { data: existing } = await db
+    .from("vehicles")
+    .select("id")
+    .eq("organization_id", orgId)
+    .limit(1);
+  if (existing?.[0]) return existing[0].id;
+
+  const rows = DEMO_VEHICLES.map((v) => ({
+    organization_id: orgId,
+    station_id: stationId,
+    call_sign: v.call_sign,
+    type: v.type,
+    capacity: v.capacity,
+    current_location: `POINT(${DEMO_STATION.lng} ${DEMO_STATION.lat})`,
+  }));
+  const { data, error } = await db.from("vehicles").insert(rows).select("id").limit(1);
+  if (error || !data?.[0]) return null;
+  return data[0].id;
+}
+
 export async function ensureActiveDispatch(organizationId: string, createdBy: string): Promise<string | null> {
   const db = getServiceClient();
 
-  // Already an active dispatch? use it.
   const { data: existing } = await db
     .from("dispatches")
     .select("id")
     .in("status", ["assigned", "acknowledged", "en_route", "on_scene"])
     .order("assigned_at", { ascending: false })
     .limit(1);
-  if (existing && existing[0]) return existing[0].id;
+  if (existing?.[0]) return existing[0].id;
 
-  // Need a vehicle to dispatch — any one in the org is fine for the demo.
-  const { data: vehicles } = await db
-    .from("vehicles")
-    .select("id")
-    .eq("organization_id", organizationId)
-    .limit(1);
-  const vehicle = vehicles?.[0];
-  if (!vehicle) return null;
+  const stationId = await ensureStation(organizationId);
+  if (!stationId) return null;
 
-  // Pick a demo incident and insert it.
+  const vehicleId = await ensureVehicle(organizationId, stationId);
+  if (!vehicleId) return null;
+
   const demo = DEMO_INCIDENTS[Math.floor(Math.random() * DEMO_INCIDENTS.length)];
   const { data: incident, error: incErr } = await db
     .from("incidents")
@@ -74,12 +126,11 @@ export async function ensureActiveDispatch(organizationId: string, createdBy: st
     .single();
   if (incErr || !incident) return null;
 
-  // Dispatch the vehicle to it.
   const { data: dispatch, error: dispErr } = await db
     .from("dispatches")
     .insert({
       incident_id: incident.id,
-      vehicle_id: vehicle.id,
+      vehicle_id: vehicleId,
       status: "en_route",
       assigned_at: new Date().toISOString(),
       en_route_at: new Date().toISOString(),
@@ -88,10 +139,8 @@ export async function ensureActiveDispatch(organizationId: string, createdBy: st
     .single();
   if (dispErr || !dispatch) return null;
 
-  // Mark incident + vehicle as in-progress so the dispatcher page also
-  // reflects the state consistently.
   await db.from("incidents").update({ status: "dispatched" }).eq("id", incident.id);
-  await db.from("vehicles").update({ status: "dispatched" }).eq("id", vehicle.id);
+  await db.from("vehicles").update({ status: "dispatched" }).eq("id", vehicleId);
 
   return dispatch.id;
 }
