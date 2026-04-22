@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser, getServiceClient } from "@/lib/supabase/api";
+import { ensureActiveDispatch } from "@/lib/demo-seed";
 
 // Auth-gated redirect resolver — never prerender.
 export const dynamic = "force-dynamic";
 
-// /chief with no dispatchId — pick the most recent active dispatch and jump
-// straight to its chief console. Falls back to the home page if there are
-// no active dispatches.
+// /chief with no dispatchId — jump straight to the most recent active dispatch.
+// If there's no active dispatch, auto-seed a demo one so the chief console is
+// never stranded on an empty state.
 export default async function ChiefIndexPage() {
   const auth = await getAuthenticatedUser();
   if (!auth) redirect("/login");
@@ -19,7 +20,11 @@ export default async function ChiefIndexPage() {
     .order("assigned_at", { ascending: false })
     .limit(1);
 
-  const most = data?.[0];
-  if (!most) redirect("/?no_active_dispatch=1");
-  redirect(`/chief/${most.id}`);
+  const existing = data?.[0];
+  if (existing) redirect(`/chief/${existing.id}`);
+
+  const seeded = await ensureActiveDispatch(auth.profile.organization_id, auth.user.id);
+  if (seeded) redirect(`/chief/${seeded}`);
+
+  redirect("/?no_active_dispatch=1");
 }
