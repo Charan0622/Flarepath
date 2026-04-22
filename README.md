@@ -294,7 +294,6 @@ flarepath/
 │   └── supabase/migrations/       # SQL migrations in order
 ├── pnpm-workspace.yaml
 ├── .env.example
-├── Claude.md / instructions.md    # full build log
 └── README.md                      # you are here
 ```
 
