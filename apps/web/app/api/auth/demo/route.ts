@@ -48,9 +48,22 @@ export async function POST(request: NextRequest) {
 
   const supabaseAdmin = getAdmin();
 
+  // Idempotently ensure the demo org exists so the profile FK is satisfied
+  // on a fresh Supabase project.
+  const { error: orgErr } = await supabaseAdmin
+    .from("organizations")
+    .upsert({ id: SEED_ORG_ID, name: "San Jose Fire Department", timezone: "America/Los_Angeles" }, { onConflict: "id" });
+  if (orgErr) {
+    console.error("[demo-auth] org upsert failed:", orgErr);
+    return NextResponse.json({ error: `org seed failed: ${orgErr.message}` }, { status: 500 });
+  }
+
   // Check if user exists
   const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
   const existing = existingUsers?.users?.find((u) => u.email === demoUser.email);
+
+  const userId = existing?.id;
+  let profileUserId = userId;
 
   if (!existing) {
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -63,17 +76,25 @@ export async function POST(request: NextRequest) {
     if (createError) {
       return NextResponse.json({ error: createError.message }, { status: 500 });
     }
+    profileUserId = newUser.user?.id;
+  }
 
-    if (newUser.user) {
-      await supabaseAdmin.from("profiles").upsert({
-        id: newUser.user.id,
-        organization_id: SEED_ORG_ID,
-        role: demoUser.role,
-        full_name: demoUser.name,
-        phone: demoUser.phone,
-        skills: demoUser.skills,
-        current_status: "available",
-      });
+  // Upsert profile for both new AND existing users — covers the case where
+  // an earlier call created the auth user but the profile insert silently
+  // failed (e.g. before this route seeded the org).
+  if (profileUserId) {
+    const { error: profileErr } = await supabaseAdmin.from("profiles").upsert({
+      id: profileUserId,
+      organization_id: SEED_ORG_ID,
+      role: demoUser.role,
+      full_name: demoUser.name,
+      phone: demoUser.phone,
+      skills: demoUser.skills,
+      current_status: "available",
+    }, { onConflict: "id" });
+    if (profileErr) {
+      console.error("[demo-auth] profile upsert failed:", profileErr);
+      return NextResponse.json({ error: `profile seed failed: ${profileErr.message}` }, { status: 500 });
     }
   }
 
