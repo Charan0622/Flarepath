@@ -12,7 +12,7 @@
 
 - **North star:** deployable demo on free tiers, impressive to MNC recruiters.
 - **Status:** Phase 1 MVP build — check `PLAN.md` for the active task.
-- **Owner:** Solo developer (MS AI student portfolio project).
+- **Owner:** Solo developer (portfolio project).
 
 ---
 

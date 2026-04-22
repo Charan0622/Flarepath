@@ -6,8 +6,7 @@
 >
 > The name comes from aviation: a *flarepath* is the row of lights along a runway that guides pilots in at night. This product does the same thing for a fire crew — a glowing red path from their vehicle to the incident, the instant dispatch is confirmed.
 
-**Author:** [Your Name]  
-**Program:** MS in Artificial Intelligence · B.Tech in CSE (Data Science)  
+**Author:** Charan Sai Gandham  
 **Status:** Design Document v1.1  
 **Stack:** Next.js 14 (Responsive PWA) · Supabase · Mapbox · Google Gemini · Web Speech API · TypeScript · Turborepo · Optional Expo native shell
 
@@ -501,7 +500,7 @@ The `<->` operator uses the GIST index — O(log n) even with thousands of vehic
 
 ## 9. AI/ML Components
 
-This is where your MS in AI earns its screen time. Don't bolt on AI — design it into the critical path.
+AI is on the critical path, not bolted on.
 
 ### 9.1 Incident Triage Agent (Phase 1)
 

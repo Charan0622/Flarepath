@@ -358,15 +358,9 @@ Phase 0 → Phase 5 spans from empty repo to a three-role, cross-synced, Vercel-
 
 ---
 
-## License
-
-MIT — see [LICENSE](LICENSE).
-
----
-
 <div align="center">
 
-Built by **[Charan Sai Gandham](https://github.com/Charan0622)** — MS in Artificial Intelligence.
+Built by **[Charan Sai Gandham](https://github.com/Charan0622)**.
 
 _Every second burns. We light the fastest way through._
 
