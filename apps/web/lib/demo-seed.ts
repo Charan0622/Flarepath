@@ -65,7 +65,8 @@ async function ensureStation(orgId: string): Promise<string | null> {
     })
     .select("id")
     .single();
-  if (error || !data) return null;
+  if (error) { console.error("[demo-seed] station insert failed:", error); return null; }
+  if (!data) return null;
   return data.id;
 }
 
@@ -87,7 +88,8 @@ async function ensureVehicle(orgId: string, stationId: string): Promise<string |
     current_location: `POINT(${DEMO_STATION.lng} ${DEMO_STATION.lat})`,
   }));
   const { data, error } = await db.from("vehicles").insert(rows).select("id").limit(1);
-  if (error || !data?.[0]) return null;
+  if (error) { console.error("[demo-seed] vehicle insert failed:", error); return null; }
+  if (!data?.[0]) return null;
   return data[0].id;
 }
 
@@ -103,10 +105,10 @@ export async function ensureActiveDispatch(organizationId: string, createdBy: st
   if (existing?.[0]) return existing[0].id;
 
   const stationId = await ensureStation(organizationId);
-  if (!stationId) return null;
+  if (!stationId) { console.error("[demo-seed] station step returned null"); return null; }
 
   const vehicleId = await ensureVehicle(organizationId, stationId);
-  if (!vehicleId) return null;
+  if (!vehicleId) { console.error("[demo-seed] vehicle step returned null"); return null; }
 
   const demo = DEMO_INCIDENTS[Math.floor(Math.random() * DEMO_INCIDENTS.length)];
   const { data: incident, error: incErr } = await db
@@ -124,7 +126,8 @@ export async function ensureActiveDispatch(organizationId: string, createdBy: st
     })
     .select("id")
     .single();
-  if (incErr || !incident) return null;
+  if (incErr) { console.error("[demo-seed] incident insert failed:", incErr); return null; }
+  if (!incident) return null;
 
   const { data: dispatch, error: dispErr } = await db
     .from("dispatches")
@@ -137,7 +140,8 @@ export async function ensureActiveDispatch(organizationId: string, createdBy: st
     })
     .select("id")
     .single();
-  if (dispErr || !dispatch) return null;
+  if (dispErr) { console.error("[demo-seed] dispatch insert failed:", dispErr); return null; }
+  if (!dispatch) return null;
 
   await db.from("incidents").update({ status: "dispatched" }).eq("id", incident.id);
   await db.from("vehicles").update({ status: "dispatched" }).eq("id", vehicleId);
