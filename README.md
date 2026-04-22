@@ -18,7 +18,7 @@ Pick any role — Dispatcher · Unit Chief · Unit Member — and watch the same
 
 </div>
 
-![Login — pick your role](./Login%20Home%20Page.png)
+![Login — pick your role](./screenshots/01-login-roles.png)
 
 ---
 
@@ -48,7 +48,7 @@ _Citywide command center_
 - Post-incident PDF report (Gemini-generated)
 - 15-card analytics: NFPA 1710 benchmarks, coverage isochrones, response-flow heatmap, hotspots, dispatch funnels, AI confidence, forecast
 
-![Dispatcher — incident detail with AI vehicle recommendations](./Dispatcher%20Home%20Page.png)
+![Dispatcher — incident detail with AI vehicle recommendations](./screenshots/02-dispatcher-console.png)
 
 </td>
 <td width="33%" valign="top">
@@ -68,7 +68,7 @@ _Rolling command · Tablet Command-style_
 - Gemini tactical briefing on demand
 - Cascade resolve → auto-generated post-incident HTML report
 
-![Unit Chief — tactical canvas + orbital crew constellation](./Unit%20Chief%20Home%20page.png)
+![Unit Chief — tactical canvas + orbital crew constellation](./screenshots/06-chief-tactical-canvas.png)
 
 </td>
 <td width="33%" valign="top">
@@ -88,7 +88,7 @@ _Firefighter HUD · glove-friendly mobile_
 - Crew chatter side-channel
 - Smoke-mode high-contrast invert rendering
 
-![Unit Member — firefighter HUD with scene map + hydrants + action dock](./Unit%20Member%20Home%20page.png)
+![Unit Member — firefighter HUD with scene map + hydrants + action dock](./screenshots/07-unit-member-hud.png)
 
 </td>
 </tr>
@@ -98,7 +98,7 @@ _Firefighter HUD · glove-friendly mobile_
 
 When a firefighter triple-taps **MAYDAY**, a full-screen curtain drops with the five **LUNAR** fields pre-filled from their current state (**L**ocation · **U**nit · **N**ame · **A**ssignment-Air · **R**esources needed). Submission haptic-pulses every connected role's browser — chief's console flashes red, dispatcher's map badges the incident. This is the interaction the entire NFPA accountability system exists to enable.
 
-![Mayday — LUNAR curtain with pre-filled fields](./Mayday%20calling%20page.png)
+![Mayday — LUNAR curtain with pre-filled fields](./screenshots/08-mayday-lunar.png)
 
 ---
 
@@ -358,19 +358,19 @@ Phase 0 → Phase 5 spans from empty repo to a three-role, cross-synced, Vercel-
 
 NFPA 1710 compliance gauges, 4-hour incident forecast, hotspot heatmap, station coverage isochrones, AI-confidence grids, dispatch funnels, turnout leaderboards — all driven by one `/api/analytics` endpoint that parallel-queries every relevant table.
 
-![Analytics — 15-card ops dashboard](./Dispatcher%20Analytics%20Page.png)
+![Analytics — 15-card ops dashboard](./screenshots/04-analytics-dashboard.png)
 
 ### Crew management — drag-drop, custom units
 
 Build engines and ladders from your personnel pool. Drag firefighters onto a roster, promote one to captain, create custom call-signs. Everything persists to localStorage and reflects across the chief's crew constellation.
 
-![Teams — drag-drop personnel pool](./Dispatcher%20Crew%20management%20Page.png)
+![Teams — drag-drop personnel pool](./screenshots/05-teams-page.png)
 
 ### Citywide hotspot view
 
 Zoom out on the dispatcher map to see every active incident at once, color-coded by severity. Click any station or vehicle marker for its popover, click any incident for the AI-ranked dispatch panel.
 
-![Dispatcher — citywide hotspot view](./Dispatcher%20home%20page%202.png)
+![Dispatcher — citywide hotspot view](./screenshots/03-dispatcher-hotspots.png)
 
 ### Things I cut
 
