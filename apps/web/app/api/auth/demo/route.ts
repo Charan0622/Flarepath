@@ -124,5 +124,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: signInError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data: { success: true, role: demoUser.role, name: demoUser.name } });
+  // For chief/firefighter, look up the latest active dispatch id so the
+  // login page can navigate directly to /chief/[id] or /unit/[id], bypassing
+  // the /chief and /unit server-component redirects (which were failing
+  // silently on production for unclear reasons even after the profile seed
+  // was fixed — direct [dispatchId] URLs work fine).
+  let dispatchId: string | null = null;
+  if (demoUser.role === "chief" || demoUser.role === "firefighter") {
+    const { data: dispatches } = await supabaseAdmin
+      .from("dispatches")
+      .select("id")
+      .in("status", ["assigned", "acknowledged", "en_route", "on_scene"])
+      .order("assigned_at", { ascending: false })
+      .limit(1);
+    dispatchId = dispatches?.[0]?.id ?? null;
+  }
+
+  return NextResponse.json({ data: { success: true, role: demoUser.role, name: demoUser.name, dispatchId } });
 }

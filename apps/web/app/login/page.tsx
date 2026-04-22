@@ -96,9 +96,13 @@ export default function LoginPage() {
       setLoading(null);
       return;
     }
-    // Role-based landing: chiefs → chief console, firefighters → unit HUD,
-    // dispatchers → command-center dashboard.
-    if (role === "chief") router.push("/chief");
+    // Role-based landing. For chief/firefighter we navigate straight to the
+    // dispatch id that demo-auth picked, skipping the /chief and /unit server
+    // redirects that misbehave on Vercel production. Dispatcher goes home.
+    const dispatchId = json?.data?.dispatchId as string | null | undefined;
+    if (role === "chief" && dispatchId) router.push(`/chief/${dispatchId}`);
+    else if (role === "chief") router.push("/chief");
+    else if (role === "firefighter" && dispatchId) router.push(`/unit/${dispatchId}`);
     else if (role === "firefighter") router.push("/unit");
     else router.push("/");
     router.refresh();
