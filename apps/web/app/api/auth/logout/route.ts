@@ -23,6 +23,8 @@ export async function POST(request: NextRequest) {
 
   await supabase.auth.signOut();
 
+  // 303 See Other — browser converts POST → GET on the redirect, so we land
+  // on /login as a normal page load instead of re-POSTing the form body.
   const url = new URL("/login", request.url);
-  return NextResponse.redirect(url);
+  return NextResponse.redirect(url, { status: 303 });
 }
